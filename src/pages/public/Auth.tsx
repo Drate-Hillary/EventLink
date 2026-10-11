@@ -14,7 +14,7 @@ const demoName: Record<Role, string> = { customer: CUSTOMER_NAME, provider: 'May
 
 function Shell({ title, subtitle, children }: { title: string; subtitle: string; children: ReactNode }) {
   return (
-    <div className="grid min-h-screen lg:grid-cols-2">
+    <div className="grid grid-cols-1 min-h-screen lg:grid-cols-2">
       <div className="flex flex-col px-4 py-8 sm:px-10">
         <Logo />
         <div className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center py-10">

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  AlertTriangle, ArrowLeft, ArrowRight, Check, ChevronLeft, Flag, ChevronRight, ClipboardList, Eye, ImagePlus, MessageSquare, Pencil, Plus, ShieldCheck, Star, Trash2, TrendingUp, X,
+  AlertTriangle, ArrowLeft, ArrowRight, Check, Flag, ClipboardList, Eye, ImagePlus, MessageSquare, Pencil, Plus, ShieldCheck, Star, Trash2, TrendingUp, X,
 } from 'lucide-react'
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { Chat } from '../../components/bookings/Chat'
@@ -14,6 +14,7 @@ import { Button, buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Card } from '@/components/ui/card'
+import { Calendar } from '@/components/ui/calendar'
 import { cn } from '@/lib/utils'
 import { SelectInput } from '@/components/ui'
 
@@ -61,13 +62,13 @@ export function ProviderOverview() {
     <>
       <PageHeader title={me.name} subtitle="Your business at a glance." action={<Link to={`/vendors/${PROVIDER_ID}`} className={buttonVariants({ variant: 'outline' })}>View public page</Link>} />
       <VerificationBanner />
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Stat icon={MessageSquare} label="New enquiries" value={unread} hint="Unread messages" />
         <Stat icon={ClipboardList} label="Pending bookings" value={pending.length} hint="Waiting for your reply" />
         <Stat icon={Check} label="Accepted bookings" value={inbox.filter((b) => b.status === 'accepted').length} hint={`${upcoming.length} upcoming`} />
         <Stat icon={TrendingUp} label="Profile views" value={first.views} hint="This week" />
       </div>
-      <div className="mt-6 grid gap-6 lg:grid-cols-[1.4fr_1fr]">
+      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[1.4fr_1fr]">
         <div className="space-y-6">
           <Card className="p-5">
             <div className="mb-3 flex items-center justify-between"><h2 className="font-bold">Needs your reply</h2><Link to="/provider/bookings" className="text-sm font-semibold hover:underline">All requests</Link></div>
@@ -125,7 +126,7 @@ export function ProviderBookings() {
     <>
       <PageHeader title="Booking requests" subtitle="Open a request to see the event details, then accept or decline. Agree payment directly with the customer." />
       <Tabs id="pb" value={tab} onChange={setTab} tabs={[{ value: 'pending', label: 'Pending', count: n('pending') }, { value: 'accepted', label: 'Accepted', count: n('accepted') }, { value: 'declined', label: 'Declined', count: n('declined') }, { value: 'all', label: 'All', count: inbox.length }]} />
-      <div className="mt-5 grid gap-4 lg:grid-cols-2">
+      <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
         {list.length === 0 ? <div className="lg:col-span-2"><EmptyState icon={ClipboardList} title="No requests here" text="New requests appear as soon as customers send them." /></div> : list.map((b) => {
           const warn = b.status === 'pending' ? conflict(b) : null
           return (
@@ -159,7 +160,7 @@ export function ProviderBookings() {
           const warn = open.status === 'pending' ? conflict(open) : null
           return (
             <div className="space-y-5">
-              <dl className="grid gap-4 text-sm sm:grid-cols-3">
+              <dl className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-3">
                 {[['Requested package', open.packageName], ['Event date', open.eventDate ? dateLong(open.eventDate) : 'Not set'], ['Request type', open.kind === 'quote' ? 'Quote' : 'Booking']].map(([k, v]) => <div key={k}><dt className="text-xs text-slate-500">{k}</dt><dd className="font-semibold">{v}</dd></div>)}
               </dl>
               <div><p className="mb-1 text-sm font-semibold">Customer message</p><p className="rounded-2xl bg-secondary p-4 text-sm">{open.note || 'No message was included.'}</p></div>
@@ -217,25 +218,25 @@ export function ProviderPerformance() {
   return (
     <>
       <PageHeader title="Performance" subtitle="Based on the last six weeks of recorded activity. Weekly view counts are sample data." />
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Stat icon={Eye} label="Profile views" value={views.toLocaleString()} hint="Last 6 weeks" />
         <Stat icon={MessageSquare} label="Enquiries received" value={enq} hint="Last 6 weeks" />
         <Stat icon={TrendingUp} label="Enquiry to request" value={`${conv}%`} hint="Share that became a request" />
         <Stat icon={Check} label="Acceptance rate" value={`${rate}%`} hint={`${decided.length} decided requests`} />
       </div>
-      <div className="mt-6 grid gap-6 lg:grid-cols-2">
+      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card className="p-5">
           <h2 className="font-bold">Views and enquiries</h2>
           <p className="text-sm text-slate-600">Views have grown every week since week 1.</p>
           <div className="mt-4 h-60" role="img" aria-label="Line chart of weekly profile views and enquiries">
-            <ResponsiveContainer width="100%" height="100%"><LineChart data={providerViews} margin={{ left: -20 }}><CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E4E4E2" /><XAxis dataKey="week" {...axis} /><YAxis {...axis} /><Tooltip /><Line type="monotone" dataKey="views" name="Views" stroke="#000000" strokeWidth={2.5} dot={false} /><Line type="monotone" dataKey="enquiries" name="Enquiries" stroke="#A3A3A3" strokeWidth={2.5} dot={false} /></LineChart></ResponsiveContainer>
+            <ResponsiveContainer width="100%" height="100%"><LineChart data={providerViews} margin={{ left: -20 }}><CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E4E4E2" /><XAxis dataKey="week" {...axis} /><YAxis {...axis} /><Tooltip /><Line isAnimationActive={false} type="monotone" dataKey="views" name="Views" stroke="#000000" strokeWidth={2.5} dot={false} /><Line isAnimationActive={false} type="monotone" dataKey="enquiries" name="Enquiries" stroke="#C2602B" strokeWidth={2.5} dot={false} /></LineChart></ResponsiveContainer>
           </div>
         </Card>
         <Card className="p-5">
           <h2 className="font-bold">Most requested packages</h2>
           <p className="text-sm text-slate-600">{byPkg[0]?.requests ? `${byPkg[0].name} is requested most.` : 'Requests by package will appear here.'}</p>
           <div className="mt-4 h-60" role="img" aria-label="Bar chart of requests per package">
-            <ResponsiveContainer width="100%" height="100%"><BarChart data={byPkg} layout="vertical" margin={{ left: 20 }}><CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#E4E4E2" /><XAxis type="number" allowDecimals={false} {...axis} /><YAxis type="category" dataKey="name" width={110} {...axis} /><Tooltip cursor={{ fill: '#FAFAFA' }} /><Bar dataKey="requests" name="Requests" fill="#000000" radius={[0, 6, 6, 0]} /></BarChart></ResponsiveContainer>
+            <ResponsiveContainer width="100%" height="100%"><BarChart data={byPkg} layout="vertical" margin={{ left: 20 }}><CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#E4E4E2" /><XAxis type="number" allowDecimals={false} {...axis} /><YAxis type="category" dataKey="name" width={110} {...axis} /><Tooltip cursor={{ fill: '#FAFAFA' }} /><Bar isAnimationActive={false} barSize={14} dataKey="requests" name="Requests" fill="#C2602B" radius={7} /></BarChart></ResponsiveContainer>
           </div>
         </Card>
       </div>
@@ -262,7 +263,7 @@ export function ProviderProfile() {
   return (
     <>
       <PageHeader title="Business profile" subtitle="This is what customers see on your public page." action={<Link to={`/vendors/${PROVIDER_ID}`} className={buttonVariants({ variant: 'outline' })}>Preview public page</Link>} />
-      <form className="rounded-2xl border bg-card text-card-foreground shadow-card grid gap-4 p-5 sm:grid-cols-2 sm:p-6" noValidate onSubmit={(e) => { e.preventDefault(); save() }}>
+      <form className="rounded-2xl border bg-card text-card-foreground shadow-card grid grid-cols-1 gap-4 p-5 sm:grid-cols-2 sm:p-6" noValidate onSubmit={(e) => { e.preventDefault(); save() }}>
         <Field label="Business name" error={err.name}>{(id) => <Input id={id}  value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} />}</Field>
         <Field label="Service category">{(id) => <SelectInput id={id}  value={f.category} onChange={(e) => setF({ ...f, category: e.target.value as Category })}>{CATEGORIES.map((c) => <option key={c}>{c}</option>)}</SelectInput>}</Field>
         <Field label="Contact email" error={err.email}>{(id) => <Input id={id} type="email"  value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} />}</Field>
@@ -333,7 +334,7 @@ export function ProviderPackages() {
     <>
       <PageHeader title="Packages and pricing" subtitle="Customers pick a package when they request a quote or booking." action={<Button onClick={() => open()}><Plus className="h-4 w-4" /> New package</Button>} />
       {me.packages.length === 0 ? <EmptyState icon={Plus} title="No packages yet" text="Add a package so customers can see what you offer and what it costs." action={<Button onClick={() => open()}>Add package</Button>} /> : (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{me.packages.map((p) => (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">{me.packages.map((p) => (
           <article key={p.id} className="rounded-2xl border bg-card text-card-foreground shadow-card flex flex-col p-5">
             <div className="flex items-start justify-between"><h2 className="font-bold">{p.name}</h2><p className="text-xl font-extrabold">{money(p.price)}</p></div>
             <p className="mt-1 text-sm text-slate-600">{p.description}</p>
@@ -356,35 +357,26 @@ export function ProviderPackages() {
 
 export function ProviderAvailability() {
   const { blockedDates, toggleDate } = useMe()
-  const [cursor, setCursor] = useState(() => new Date(2026, 9, 1))
-  const y = cursor.getFullYear(), m = cursor.getMonth()
-  const days = useMemo(() => {
-    const first = new Date(y, m, 1).getDay()
-    const count = new Date(y, m + 1, 0).getDate()
-    return [...Array(first).fill(null), ...Array.from({ length: count }, (_, i) => i + 1)] as (number | null)[]
-  }, [y, m])
-  const iso = (d: number) => `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
-  const today = new Date().toISOString().slice(0, 10)
+  const toIso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  const blocked = useMemo(() => blockedDates.map((s) => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d) }), [blockedDates])
+  const today = new Date(); today.setHours(0, 0, 0, 0)
 
   return (
     <>
       <PageHeader title="Availability" subtitle="Select a date to mark it as unavailable. Customers filtering for open dates will not see you on those days." />
-      <Card className="max-w-xl p-5">
-        <div className="mb-4 flex items-center justify-between">
-          <Button variant="ghost" size="icon" aria-label="Previous month" onClick={() => setCursor(new Date(y, m - 1, 1))}><ChevronLeft /></Button>
-          <h2 className="text-lg font-extrabold">{cursor.toLocaleString('en-US', { month: 'long', year: 'numeric' })}</h2>
-          <Button variant="ghost" size="icon" aria-label="Next month" onClick={() => setCursor(new Date(y, m + 1, 1))}><ChevronRight /></Button>
+      <Card className="w-fit max-w-full p-3 sm:p-5">
+        <Calendar
+          mode="multiple"
+          selected={blocked}
+          onDayClick={(d) => toggleDate(toIso(d))}
+          disabled={{ before: today }}
+          defaultMonth={new Date(2026, 9, 1)}
+          aria-label="Availability calendar"
+        />
+        <div className="mt-2 flex gap-5 border-t px-3 pt-4 text-sm">
+          <span className="flex items-center gap-2"><span className="h-4 w-4 rounded border" /> Available</span>
+          <span className="flex items-center gap-2"><span className="h-4 w-4 rounded bg-primary" /> Unavailable</span>
         </div>
-        <div className="grid grid-cols-7 gap-1 text-center text-xs font-semibold text-slate-500">{['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d) => <div key={d} className="py-2">{d}</div>)}</div>
-        <div className="grid grid-cols-7 gap-1">
-          {days.map((d, i) => d === null ? <div key={i} /> : (() => {
-            const blocked = blockedDates.includes(iso(d))
-            const past = iso(d) < today
-            return <button key={i} disabled={past} aria-pressed={blocked} aria-label={`${dateLong(iso(d))}, ${blocked ? 'unavailable' : 'available'}`} onClick={() => toggleDate(iso(d))}
-              className={`aspect-square rounded-xl text-sm font-semibold transition disabled:opacity-30 ${blocked ? 'bg-navy-900 text-white' : 'bg-teal-50 text-teal-800 hover:bg-teal-100'} ${iso(d) === today ? 'ring-2 ring-gold-500' : ''}`}>{d}</button>
-          })())}
-        </div>
-        <div className="mt-4 flex gap-5 text-sm"><span className="flex items-center gap-2"><span className="h-4 w-4 rounded bg-teal-50 ring-1 ring-teal-200" /> Available</span><span className="flex items-center gap-2"><span className="h-4 w-4 rounded bg-navy-900" /> Unavailable</span></div>
       </Card>
     </>
   )

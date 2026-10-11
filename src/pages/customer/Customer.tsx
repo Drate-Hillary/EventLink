@@ -1,4 +1,5 @@
 import { Slider } from '@/components/ui/slider'
+import { DatePicker } from '@/components/ui/date-picker'
 import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import {
@@ -62,7 +63,7 @@ export function CustomerEvents() {
       {events.length === 0 ? (
         <EmptyState icon={CalendarDays} title="No events yet" text="Create your first event to start requesting quotes." action={<Button onClick={() => open('new')}>Create event</Button>} />
       ) : (
-        <div className="grid gap-5 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
           {events.map((e) => {
             const used = Object.values(allocations[e.id] ?? {}).reduce((n, v) => n + (v ?? 0), 0)
             const pct = e.budget > 0 ? Math.min(100, Math.round((used / e.budget) * 100)) : 0
@@ -107,10 +108,10 @@ export function CustomerEvents() {
       )}
 
       <Modal open={!!editing} onClose={() => setEditing(null)} title={editing === 'new' ? 'Create event' : 'Edit event'} wide>
-        <form className="grid gap-4 sm:grid-cols-2" noValidate onSubmit={(e) => { e.preventDefault(); submit() }}>
+        <form className="grid grid-cols-1 gap-4 sm:grid-cols-2" noValidate onSubmit={(e) => { e.preventDefault(); submit() }}>
           <div className="sm:col-span-2"><Field label="Event name" error={errors.name}>{(id) => <Input id={id}  value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />}</Field></div>
           <Field label="Event type">{(id) => <SelectInput id={id}  value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>{EVENT_TYPES.map((t) => <option key={t}>{t}</option>)}</SelectInput>}</Field>
-          <Field label="Date" error={errors.date}>{(id) => <Input id={id} type="date"  value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />}</Field>
+          <Field label="Date" error={errors.date}>{(id) => <DatePicker id={id} value={form.date} onChange={(date) => setForm({ ...form, date })} />}</Field>
           <Field label="Location" error={errors.location}>{(id) => <Input id={id}  placeholder="City, State" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} />}</Field>
           <Field label="Guests" error={errors.guests}>{(id) => <Input id={id} type="number" min={1}  value={form.guests} onChange={(e) => setForm({ ...form, guests: Number(e.target.value) })} />}</Field>
           <div className="sm:col-span-2"><Field label="Total budget (USD)" error={errors.budget}>{(id) => <Input id={id} type="number" min={0} step={100}  value={form.budget} onChange={(e) => setForm({ ...form, budget: Number(e.target.value) })} />}</Field></div>
@@ -144,7 +145,7 @@ export function CustomerBookings() {
     <>
       <PageHeader section title="Quote and booking requests" subtitle="Track every request and see how providers respond." />
       <Tabs id="cb" value={tab} onChange={setTab} tabs={[{ value: 'all', label: 'All', count: mine.length }, { value: 'pending', label: 'Pending', count: n('pending') }, { value: 'accepted', label: 'Accepted', count: n('accepted') }, { value: 'declined', label: 'Declined', count: n('declined') }]} />
-      <div className="mt-5 grid gap-4 lg:grid-cols-2">
+      <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
         {list.length === 0 ? <div className="lg:col-span-2"><EmptyState icon={ClipboardList} title="Nothing here yet" text="Requests you send to vendors will show up with their status." action={<Link to="/customer#find" className={buttonVariants({ variant: 'default' })}>Find providers</Link>} /></div> :
           list.map((b) => {
             const v = vendors.find((x) => x.id === b.vendorId)
@@ -208,7 +209,7 @@ export function CustomerBudget() {
           <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" aria-hidden /> <p><strong>You’re {money(total - ev.budget)} over budget.</strong> Lower one or more categories to get back under {money(ev.budget)}.</p>
         </div>
       )}
-      <div className="grid gap-6 lg:grid-cols-[1.2fr_1fr]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.2fr_1fr]">
         <section className="rounded-2xl border bg-card text-card-foreground shadow-card p-5 sm:p-6">
           <h2 className="text-lg font-extrabold">Allocate by service</h2>
           <div className="mt-5 space-y-5">

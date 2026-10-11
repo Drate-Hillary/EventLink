@@ -145,7 +145,7 @@ export function Modal({ open, onClose, title, children, wide }: { open: boolean;
 
 export function Tabs<T extends string>({ tabs, value, onChange }: { tabs: { value: T; label: string; count?: number }[]; value: T; onChange: (v: T) => void; id?: string }) {
   return (
-    <ShTabs value={value} onValueChange={(v) => onChange(v as T)}>
+    <ShTabs value={value} onValueChange={(v) => onChange(v as T)} className="min-w-0 max-w-full">
       <TabsList>
         {tabs.map((t) => (
           <TabsTrigger key={t.value} value={t.value}>{t.label}{t.count !== undefined && <span className="ml-1.5 opacity-70">{t.count}</span>}</TabsTrigger>

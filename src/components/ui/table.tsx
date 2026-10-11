@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils'
 
 const Table = React.forwardRef<HTMLTableElement, React.HTMLAttributes<HTMLTableElement>>(({ className, ...props }, ref) => (
   <div className="relative w-full overflow-x-auto">
-    <table ref={ref} className={cn('w-full caption-bottom text-sm', className)} {...props} />
+    <table ref={ref} className={cn('w-full caption-bottom text-sm max-md:[&_thead]:hidden max-md:[&_tr]:block max-md:[&_tr]:px-4 max-md:[&_tr]:py-3 max-md:[&_td]:flex max-md:[&_td]:items-center max-md:[&_td]:justify-between max-md:[&_td]:gap-4 max-md:[&_td]:px-0 max-md:[&_td]:py-1.5 max-md:[&_td]:text-right max-md:[&_td]:before:text-xs max-md:[&_td]:before:font-semibold max-md:[&_td]:before:text-muted-foreground max-md:[&_td]:before:text-left max-md:[&_td]:before:content-[attr(data-label)] max-md:[&_td:first-child]:block max-md:[&_td:first-child]:text-left max-md:[&_td:first-child]:before:hidden', className)} {...props} />
   </div>
 ))
 Table.displayName = 'Table'

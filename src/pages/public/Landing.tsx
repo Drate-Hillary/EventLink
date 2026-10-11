@@ -66,7 +66,7 @@ function Hero() {
 
   return (
     <section ref={ref} className="relative overflow-hidden">
-      <div className="container-x grid items-center gap-10 pb-20 pt-10 lg:grid-cols-[1.05fr_0.95fr] lg:pb-28 lg:pt-16">
+      <div className="container-x grid grid-cols-1 items-center gap-10 pb-20 pt-10 lg:grid-cols-[1.05fr_0.95fr] lg:pb-28 lg:pt-16">
         <div>
           <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="mb-5 inline-flex items-center gap-2 rounded-full border border-soft bg-white px-3 py-1.5 text-sm font-semibold">
             <BadgeCheck className="h-4 w-4" aria-hidden /> Every badge is checked by a person
@@ -177,7 +177,7 @@ function How() {
   const line = useSpring(scrollYProgress, { stiffness: 120, damping: 30 })
   return (
     <section id="how" className="scroll-mt-20 bg-white py-20 lg:py-28">
-      <div className="container-x grid gap-12 lg:grid-cols-[0.8fr_1.2fr]">
+      <div className="container-x grid grid-cols-1 gap-12 lg:grid-cols-[0.8fr_1.2fr]">
         <div className="lg:sticky lg:top-28 lg:self-start">
           <h2 className="font-serif text-3xl font-semibold leading-tight sm:text-4xl">From first idea to confirmed booking</h2>
           <p className="mt-5 max-w-sm text-slate-600">Four steps, one workspace. Payment is agreed directly with your provider.</p>
@@ -244,7 +244,7 @@ function Trust() {
   const { accounts, vendors } = useStore()
   return (
     <section className="bg-navy-900 py-20 text-white lg:py-28">
-      <div className="container-x grid items-center gap-12 lg:grid-cols-2">
+      <div className="container-x grid grid-cols-1 items-center gap-12 lg:grid-cols-2">
         <div>
           <ShieldCheck className="h-10 w-10" aria-hidden />
           <h2 className="mt-6 font-serif text-3xl font-semibold leading-tight sm:text-4xl">A badge you can rely on</h2>
@@ -382,7 +382,7 @@ function Cta() {
   return (
     <section ref={ref} className="overflow-hidden py-16 lg:py-24">
       <div className="container-x">
-        <div className="grid items-center gap-6 md:grid-cols-[1fr_1.35fr_1fr] md:gap-8">
+        <div className="grid grid-cols-1 items-center gap-6 md:grid-cols-[1fr_1.35fr_1fr] md:gap-8">
           <div className="hidden grid-cols-2 gap-4 md:grid">
             <Column images={colA} y={up} />
             <Column images={colB} y={down} className="mt-16" />

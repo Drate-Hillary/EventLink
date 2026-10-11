@@ -66,7 +66,7 @@ export function PublicLayout() {
       </header>
       <main className="flex-1"><Outlet /></main>
       <footer className="bg-navy-900 text-slate-300">
-        <div className="container-x grid gap-8 py-12 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="container-x grid grid-cols-1 gap-8 py-12 sm:grid-cols-2 lg:grid-cols-4">
           <div className="sm:col-span-2 lg:col-span-1">
             <Logo light />
             <p className="mt-3 max-w-xs text-sm">Find, compare and book trusted event vendors, all in one place.</p>

@@ -19,7 +19,7 @@ import type { AccountStatus, ProviderAccount, ReportStatus } from '../../types'
 import { dateLong, timeShort } from '../../utils/format'
 
 const INK = '#000000'
-const GREY = '#A3A3A3'
+const GREY = '#C2602B' // cinnamon
 const GRID = '#E4E4E2'
 
 const ChartCard = ({ title, insight, children }: { title: string; insight?: string; children: ReactNode }) => (
@@ -74,7 +74,7 @@ export function AdminOverview() {
   return (
     <>
       <PageHeader title="Platform overview" subtitle="What needs attention across EventLink today." />
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <Stat icon={Users} label="Customers" value={customers} hint="Registered accounts" />
         <Stat icon={Store} label="Vendors" value={accounts.length} hint="All provider accounts" />
         <Stat icon={BadgeCheck} label="Pending" value={pending.length} hint="Awaiting verification" />
@@ -82,7 +82,7 @@ export function AdminOverview() {
         <Stat icon={UserX} label="Suspended" value={accounts.filter((a) => a.status === 'suspended').length + users.filter((u) => u.status === 'suspended').length} hint="Vendors and customers" />
       </div>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-[1.35fr_1fr]">
+      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[1.35fr_1fr]">
         <Card className="p-5">
           <div className="mb-3 flex items-center justify-between"><h2 className="font-bold">Verification queue</h2><Link to="/admin/verification" className="text-sm font-semibold hover:underline">Open centre</Link></div>
           {pending.length === 0 ? <p className="py-6 text-center text-sm text-slate-600">Queue is empty. New applications appear here.</p> : (
@@ -115,13 +115,13 @@ export function AdminOverview() {
         </Card>
       </div>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-2">
+      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
         <ChartCard title="New sign-ups" insight="Customer growth is outpacing provider growth, so keep approving applications quickly.">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={monthlySignups} margin={{ left: -20 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={GRID} /><XAxis dataKey="month" {...axis} /><YAxis {...axis} />
               <Tooltip cursor={{ fill: '#FAFAFA' }} /><Legend />
-              <Bar dataKey="customers" name="Customers" fill={INK} radius={[6, 6, 0, 0]} /><Bar dataKey="providers" name="Providers" fill={GREY} radius={[6, 6, 0, 0]} />
+              <Bar isAnimationActive={false} barSize={14} dataKey="customers" name="Customers" fill={INK} radius={7} /><Bar isAnimationActive={false} barSize={14} dataKey="providers" name="Providers" fill={GREY} radius={7} />
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
@@ -129,7 +129,7 @@ export function AdminOverview() {
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={byCat} layout="vertical" margin={{ left: 20 }}>
               <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={GRID} /><XAxis type="number" allowDecimals={false} {...axis} /><YAxis type="category" dataKey="name" width={110} {...axis} />
-              <Tooltip cursor={{ fill: '#FAFAFA' }} /><Bar dataKey="requests" name="Requests" fill={INK} radius={[0, 6, 6, 0]} isAnimationActive={false} />
+              <Tooltip cursor={{ fill: '#FAFAFA' }} /><Bar isAnimationActive={false} barSize={14} dataKey="requests" name="Requests" fill={GREY} radius={7} />
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
@@ -166,7 +166,7 @@ export function AdminVerification() {
         <Tabs id="av" value={tab} onChange={setTab} tabs={(['pending', 'verified', 'rejected', 'suspended'] as const).map((s) => ({ value: s, label: s[0].toUpperCase() + s.slice(1), count: count(s) }))} />
         <SearchBox q={q} onQ={setQ} placeholder="Search applications" />
       </div>
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {list.length === 0 ? <div className="md:col-span-2"><EmptyState icon={BadgeCheck} title={`No ${tab} providers`} text="Providers appear here when their status changes." /></div> : list.map((a) => {
           const Icon = categoryIcon[a.category]
           return (
@@ -199,7 +199,7 @@ export function AdminVerification() {
       <Modal open={!!detail} onClose={() => setDetail(null)} title={detail?.business ?? ''} wide>
         {detail && (
           <div className="space-y-5">
-            <dl className="grid gap-4 text-sm sm:grid-cols-2">
+            <dl className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
               {[['Owner', detail.owner], ['Category', detail.category], ['Location', detail.location], ['Applied', dateLong(detail.submitted)]].map(([k, v]) => <div key={k}><dt className="text-xs text-slate-500">{k}</dt><dd className="font-semibold">{v}</dd></div>)}
             </dl>
             <div>
@@ -248,14 +248,14 @@ export function AdminVendors() {
         <SelectInput aria-label="Registered" value={since} onChange={(e) => setSince(e.target.value)} className="w-40 bg-white">{sinceOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</SelectInput>
       </FilterBar>
       <Card className="overflow-hidden">
-        <Table className="min-w-[760px]">
+        <Table className="md:min-w-[760px]">
           <TableHeader><TableRow className={th}><TableHead>Vendor</TableHead><TableHead>Category</TableHead><TableHead>Location</TableHead><TableHead>Applied</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
           <TableBody>
             {list.map((a) => (
               <TableRow key={a.id}>
-                <TableCell><div className="flex items-center gap-3"><Avatar name={a.business} size="sm" /><div><p className="font-bold">{a.business}</p><p className="text-xs text-slate-500">{a.owner}</p></div></div></TableCell>
-                <TableCell>{a.category}</TableCell><TableCell>{a.location}</TableCell><TableCell>{dateLong(a.submitted)}</TableCell><TableCell><StatusBadge status={a.status} /></TableCell>
-                <TableCell className="space-x-2 text-right">
+                <TableCell data-label="Vendor"><div className="flex items-center gap-3"><Avatar name={a.business} size="sm" /><div><p className="font-bold">{a.business}</p><p className="text-xs text-slate-500">{a.owner}</p></div></div></TableCell>
+                <TableCell data-label="Category">{a.category}</TableCell><TableCell data-label="Location">{a.location}</TableCell><TableCell data-label="Applied">{dateLong(a.submitted)}</TableCell><TableCell data-label="Status"><StatusBadge status={a.status} /></TableCell>
+                <TableCell data-label="Actions" className="space-x-2 text-right">
                   {a.status === 'pending' && <><Button size="sm" onClick={() => act(a, 'verified', `${a.business} approved`)}>Approve</Button><Button size="sm" variant="outline" onClick={() => act(a, 'rejected', `${a.business} rejected`)}>Reject</Button></>}
                   {a.status === 'verified' && <Button size="sm" variant="destructive" onClick={() => act(a, 'suspended', `${a.business} suspended`)}>Suspend</Button>}
                   {(a.status === 'suspended' || a.status === 'rejected') && <Button size="sm" variant="outline" onClick={() => act(a, 'verified', `${a.business} reinstated`)}>Reinstate</Button>}
@@ -285,14 +285,14 @@ export function AdminCustomers() {
         <SelectInput aria-label="Registered" value={since} onChange={(e) => setSince(e.target.value)} className="w-40 bg-white">{sinceOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</SelectInput>
       </FilterBar>
       <Card className="overflow-hidden">
-        <Table className="min-w-[640px]">
+        <Table className="md:min-w-[640px]">
           <TableHeader><TableRow className={th}><TableHead>Customer</TableHead><TableHead>Joined</TableHead><TableHead>Requests</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader>
           <TableBody>
             {list.map((u) => (
               <TableRow key={u.id}>
-                <TableCell><div className="flex items-center gap-3"><Avatar name={u.name} size="sm" /><div><p className="font-bold">{u.name}</p><p className="text-xs text-slate-500">{u.email}</p></div></div></TableCell>
-                <TableCell>{dateLong(u.joined)}</TableCell><TableCell>{bookings.filter((b) => b.customer === u.name).length}</TableCell><TableCell><StatusBadge status={u.status} /></TableCell>
-                <TableCell className="text-right">{u.status === 'active'
+                <TableCell data-label="Customer"><div className="flex items-center gap-3"><Avatar name={u.name} size="sm" /><div><p className="font-bold">{u.name}</p><p className="text-xs text-slate-500">{u.email}</p></div></div></TableCell>
+                <TableCell data-label="Joined">{dateLong(u.joined)}</TableCell><TableCell data-label="Requests">{bookings.filter((b) => b.customer === u.name).length}</TableCell><TableCell data-label="Status"><StatusBadge status={u.status} /></TableCell>
+                <TableCell data-label="Action" className="text-right">{u.status === 'active'
                   ? <Button size="sm" variant="destructive" onClick={() => { setUserStatus(u.id, 'suspended'); toast(`${u.name} suspended`) }}>Suspend</Button>
                   : <Button size="sm" variant="outline" onClick={() => { setUserStatus(u.id, 'active'); toast(`${u.name} reactivated`) }}>Reactivate</Button>}</TableCell>
               </TableRow>
@@ -320,7 +320,7 @@ export function AdminCategories() {
   return (
     <>
       <PageHeader title="Service categories" subtitle="Organise what providers can offer. Deactivated categories are hidden from search." action={<Button onClick={() => { setEditing({ name: '', description: '' }); setErr('') }}><Plus className="h-4 w-4" /> Add category</Button>} />
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {categories.map((c) => {
           const n = vendors.filter((v) => v.category === c.name).length
           const Icon = (categoryIcon as Record<string, typeof Tags>)[c.name] ?? Tags
@@ -366,11 +366,11 @@ export function AdminRequests() {
         <SearchBox q={q} onQ={setQ} placeholder="Search customer or vendor" />
       </div>
       <Card className="overflow-hidden">
-        <Table className="min-w-[760px]">
+        <Table className="md:min-w-[760px]">
           <TableHeader><TableRow className={th}><TableHead>Customer</TableHead><TableHead>Vendor</TableHead><TableHead>Package</TableHead><TableHead>Type</TableHead><TableHead>Sent</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
           <TableBody>
             {list.map((b) => (
-              <TableRow key={b.id}><TableCell className="font-bold">{b.customer}</TableCell><TableCell>{vendors.find((v) => v.id === b.vendorId)?.name}</TableCell><TableCell>{b.packageName}</TableCell><TableCell>{b.kind === 'quote' ? 'Quote' : 'Booking'}</TableCell><TableCell>{dateLong(b.createdAt)}</TableCell><TableCell><StatusBadge status={b.status} /></TableCell></TableRow>
+              <TableRow key={b.id}><TableCell data-label="Customer" className="font-bold">{b.customer}</TableCell><TableCell data-label="Vendor">{vendors.find((v) => v.id === b.vendorId)?.name}</TableCell><TableCell data-label="Package">{b.packageName}</TableCell><TableCell data-label="Type">{b.kind === 'quote' ? 'Quote' : 'Booking'}</TableCell><TableCell data-label="Sent">{dateLong(b.createdAt)}</TableCell><TableCell data-label="Status"><StatusBadge status={b.status} /></TableCell></TableRow>
             ))}
             {list.length === 0 && <TableRow><TableCell colSpan={6} className="py-10 text-center text-slate-500">No requests match.</TableCell></TableRow>}
           </TableBody>
@@ -392,18 +392,18 @@ export function AdminAnalytics() {
   return (
     <>
       <PageHeader title="Analytics" subtitle="Trends that help you decide where to act. Figures for earlier months are sample data." />
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <ChartCard title="Provider registrations" insight={`${accounts.filter((a) => a.status === 'pending').length} applications are waiting. Faster reviews keep new providers from dropping off.`}>
-          <ResponsiveContainer width="100%" height="100%"><BarChart data={monthlySignups} margin={{ left: -20 }}><CartesianGrid strokeDasharray="3 3" vertical={false} stroke={GRID} /><XAxis dataKey="month" {...axis} /><YAxis {...axis} /><Tooltip cursor={{ fill: '#FAFAFA' }} /><Bar dataKey="providers" name="Providers" fill={INK} radius={[6, 6, 0, 0]} /></BarChart></ResponsiveContainer>
+          <ResponsiveContainer width="100%" height="100%"><BarChart data={monthlySignups} margin={{ left: -20 }}><CartesianGrid strokeDasharray="3 3" vertical={false} stroke={GRID} /><XAxis dataKey="month" {...axis} /><YAxis {...axis} /><Tooltip cursor={{ fill: '#FAFAFA' }} /><Bar isAnimationActive={false} barSize={14} dataKey="providers" name="Providers" fill={INK} radius={7} /></BarChart></ResponsiveContainer>
         </ChartCard>
         <ChartCard title="Verification outcomes" insight={`${rate}% of decisions in ${last.month} were approvals.`}>
-          <ResponsiveContainer width="100%" height="100%"><BarChart data={verificationOutcomes} margin={{ left: -20 }}><CartesianGrid strokeDasharray="3 3" vertical={false} stroke={GRID} /><XAxis dataKey="month" {...axis} /><YAxis {...axis} /><Tooltip cursor={{ fill: '#FAFAFA' }} /><Legend /><Bar dataKey="approved" name="Approved" stackId="a" fill={INK} /><Bar dataKey="rejected" name="Rejected" stackId="a" fill={GREY} radius={[6, 6, 0, 0]} /></BarChart></ResponsiveContainer>
+          <ResponsiveContainer width="100%" height="100%"><BarChart data={verificationOutcomes} margin={{ left: -20 }} barGap={4}><CartesianGrid strokeDasharray="3 3" vertical={false} stroke={GRID} /><XAxis dataKey="month" {...axis} /><YAxis {...axis} /><Tooltip cursor={{ fill: '#FAFAFA' }} /><Legend /><Bar isAnimationActive={false} barSize={14} dataKey="approved" name="Approved" fill={INK} radius={7} /><Bar isAnimationActive={false} barSize={14} dataKey="rejected" name="Rejected" fill={GREY} radius={7} /></BarChart></ResponsiveContainer>
         </ChartCard>
         <ChartCard title="Booking-request trend" insight={`${conv}% of ${lastReq.month} quote requests turned into booking requests.`}>
-          <ResponsiveContainer width="100%" height="100%"><LineChart data={requestTrend} margin={{ left: -20 }}><CartesianGrid strokeDasharray="3 3" vertical={false} stroke={GRID} /><XAxis dataKey="month" {...axis} /><YAxis {...axis} /><Tooltip /><Legend /><Line type="monotone" dataKey="quotes" name="Quotes" stroke={GREY} strokeWidth={2.5} dot={false} /><Line type="monotone" dataKey="bookings" name="Bookings" stroke={INK} strokeWidth={2.5} dot={false} /></LineChart></ResponsiveContainer>
+          <ResponsiveContainer width="100%" height="100%"><LineChart data={requestTrend} margin={{ left: -20 }}><CartesianGrid strokeDasharray="3 3" vertical={false} stroke={GRID} /><XAxis dataKey="month" {...axis} /><YAxis {...axis} /><Tooltip /><Legend /><Line isAnimationActive={false} type="monotone" dataKey="quotes" name="Quotes" stroke={GREY} strokeWidth={2.5} dot={false} /><Line isAnimationActive={false} type="monotone" dataKey="bookings" name="Bookings" stroke={INK} strokeWidth={2.5} dot={false} /></LineChart></ResponsiveContainer>
         </ChartCard>
         <ChartCard title="Most requested categories" insight={byCat[0] ? `${byCat[0].name} leads. Recruit more providers in thinner categories.` : undefined}>
-          <ResponsiveContainer width="100%" height="100%"><BarChart data={byCat} layout="vertical" margin={{ left: 20 }}><CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={GRID} /><XAxis type="number" allowDecimals={false} {...axis} /><YAxis type="category" dataKey="name" width={110} {...axis} /><Tooltip cursor={{ fill: '#FAFAFA' }} /><Bar dataKey="requests" name="Requests" fill={INK} radius={[0, 6, 6, 0]} isAnimationActive={false} /></BarChart></ResponsiveContainer>
+          <ResponsiveContainer width="100%" height="100%"><BarChart data={byCat} layout="vertical" margin={{ left: 20 }}><CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={GRID} /><XAxis type="number" allowDecimals={false} {...axis} /><YAxis type="category" dataKey="name" width={110} {...axis} /><Tooltip cursor={{ fill: '#FAFAFA' }} /><Bar isAnimationActive={false} barSize={14} dataKey="requests" name="Requests" fill={GREY} radius={7} /></BarChart></ResponsiveContainer>
         </ChartCard>
       </div>
     </>
@@ -470,10 +470,10 @@ export function AdminActivity() {
       <PageHeader title="Admin activity log" subtitle="Who approved, rejected or suspended an account, and when. Visible to administrators only." />
       <FilterBar q={q} onQ={setQ} placeholder="Search the log" />
       <Card className="overflow-hidden">
-        <Table className="min-w-[640px]">
+        <Table className="md:min-w-[640px]">
           <TableHeader><TableRow className={th}><TableHead>When</TableHead><TableHead>Admin</TableHead><TableHead>Action</TableHead><TableHead>Target</TableHead></TableRow></TableHeader>
           <TableBody>
-            {list.map((a) => <TableRow key={a.id}><TableCell className="whitespace-nowrap">{dateLong(a.time.slice(0, 10))} · {timeShort(a.time)}</TableCell><TableCell>{a.actor}</TableCell><TableCell className="font-semibold">{a.action}</TableCell><TableCell>{a.target}</TableCell></TableRow>)}
+            {list.map((a) => <TableRow key={a.id}><TableCell data-label="When" className="whitespace-nowrap">{dateLong(a.time.slice(0, 10))} · {timeShort(a.time)}</TableCell><TableCell data-label="Admin">{a.actor}</TableCell><TableCell data-label="Action" className="font-semibold">{a.action}</TableCell><TableCell data-label="Target">{a.target}</TableCell></TableRow>)}
             {list.length === 0 && <TableRow><TableCell colSpan={4} className="py-10 text-center text-slate-500">No entries match.</TableCell></TableRow>}
           </TableBody>
         </Table>
