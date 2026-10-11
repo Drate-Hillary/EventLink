@@ -1,0 +1,41 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%; --foreground: 0 0% 0%;
+    --card: 0 0% 100%; --card-foreground: 0 0% 0%;
+    --popover: 0 0% 100%; --popover-foreground: 0 0% 0%;
+    --primary: 0 0% 0%; --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 96%; --secondary-foreground: 0 0% 0%;
+    --muted: 0 0% 96%; --muted-foreground: 0 0% 25%;
+    --accent: 0 0% 94%; --accent-foreground: 0 0% 0%;
+    --border: 0 0% 89%; --input: 0 0% 85%; --ring: 0 0% 0%;
+    --radius: 0.75rem;
+  }
+  html { scroll-behavior: smooth; font-size: 15px; }
+  body {
+    @apply bg-white font-sans text-black antialiased;
+    font-feature-settings: 'ss01';
+  }
+  h1, h2, h3, h4 { @apply tracking-tight; }
+  :focus-visible { @apply outline outline-2 outline-offset-2 outline-teal-600; }
+}
+
+@layer components {
+  .container-x { @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}
+
+@layer utilities {
+  .no-scrollbar { scrollbar-width: none; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+}
+
+@layer base {
+  * { @apply border-border; }
+}
