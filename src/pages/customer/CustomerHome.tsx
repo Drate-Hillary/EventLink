@@ -7,7 +7,6 @@ import { Button, buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { photo } from '../../data/images'
 import { CUSTOMER_NAME, useStore } from '../../features/store'
-import { CATEGORIES } from '../../types'
 import { dateLong, daysUntil, money, timeShort } from '../../utils/format'
 import { CustomerBookings, CustomerBudget, CustomerEvents, CustomerMessages } from './Customer'
 
@@ -21,7 +20,8 @@ function Block({ id, children }: { id: string; children: ReactNode }) {
 }
 
 function FindProviders() {
-  const { vendors } = useStore()
+  const { vendors: allVendors, categories } = useStore()
+  const vendors = useMemo(() => allVendors.filter((v) => v.verified), [allVendors])
   const [q, setQ] = useState('')
   const [category, setCategory] = useState('')
   const [location, setLocation] = useState('')
@@ -44,7 +44,7 @@ function FindProviders() {
       <div className="mb-6 grid gap-3 rounded-3xl border bg-ivory p-3 sm:grid-cols-2 xl:grid-cols-[1.3fr_1fr_1fr_auto]">
         <Input aria-label="Business name" placeholder="Search by name" value={q} onChange={(e) => setQ(e.target.value)} className="bg-white" />
         <SelectInput aria-label="Service" value={category} onChange={(e) => setCategory(e.target.value)}>
-          <option value="">All services</option>{CATEGORIES.map((c) => <option key={c}>{c}</option>)}
+          <option value="">All services</option>{categories.filter((c) => c.active).map((c) => <option key={c.id}>{c.name}</option>)}
         </SelectInput>
         <Input aria-label="Location" placeholder="City" value={location} onChange={(e) => setLocation(e.target.value)} className="bg-white" />
         <Button variant={verified ? 'default' : 'outline'} aria-pressed={verified} onClick={() => setVerified((v) => !v)}>Verified only</Button>

@@ -5,11 +5,11 @@ import { DashboardLayout, PublicLayout, RequireRole } from './components/layout/
 import { CustomerLayout } from './components/layout/CustomerLayout'
 import { Toaster } from '@/components/ui/sonner'
 import { StoreProvider } from './features/store'
-import { AdminOverview, AdminReports, AdminServices, AdminUsers, AdminVerification } from './pages/admin/Admin'
+import { AdminActivity, AdminAnalytics, AdminCategories, AdminCustomers, AdminOverview, AdminReports, AdminRequests, AdminVendors, AdminVerification } from './pages/admin/Admin'
 import CustomerHome from './pages/customer/CustomerHome'
 import {
   ProviderAvailability, ProviderBookings, ProviderMessages, ProviderOverview, ProviderPackages,
-  ProviderPortfolio, ProviderProfile, ProviderReviews,
+  ProviderPerformance, ProviderPortfolio, ProviderProfile, ProviderReviews,
 } from './pages/provider/Provider'
 import { Login, Register } from './pages/public/Auth'
 import Landing from './pages/public/Landing'
@@ -57,14 +57,19 @@ export default function App() {
               <Route path="packages" element={<ProviderPackages />} />
               <Route path="availability" element={<ProviderAvailability />} />
               <Route path="reviews" element={<ProviderReviews />} />
+              <Route path="performance" element={<ProviderPerformance />} />
             </Route>
 
             <Route path="admin" element={<RequireRole role="admin"><DashboardLayout role="admin" /></RequireRole>}>
               <Route index element={<AdminOverview />} />
               <Route path="verification" element={<AdminVerification />} />
-              <Route path="users" element={<AdminUsers />} />
-              <Route path="services" element={<AdminServices />} />
+              <Route path="vendors" element={<AdminVendors />} />
+              <Route path="customers" element={<AdminCustomers />} />
+              <Route path="categories" element={<AdminCategories />} />
+              <Route path="requests" element={<AdminRequests />} />
+              <Route path="analytics" element={<AdminAnalytics />} />
               <Route path="reports" element={<AdminReports />} />
+              <Route path="activity" element={<AdminActivity />} />
             </Route>
 
             <Route path="*" element={<Navigate to="/" replace />} />
