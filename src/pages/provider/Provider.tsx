@@ -1,12 +1,14 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  Check, ChevronLeft, Flag, ChevronRight, ClipboardList, ImagePlus, MessageSquare, Pencil, Plus, Star, Trash2, TrendingUp, X,
+  AlertTriangle, ArrowLeft, ArrowRight, Check, ChevronLeft, Flag, ChevronRight, ClipboardList, Eye, ImagePlus, MessageSquare, Pencil, Plus, ShieldCheck, Star, Trash2, TrendingUp, X,
 } from 'lucide-react'
+import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { Chat } from '../../components/bookings/Chat'
-import { Art, EmptyState, Field, Modal, PageHeader, Stars, Stat, StatusBadge, Tabs, VerifiedBadge, categoryIcon } from '../../components/ui'
+import { providerViews } from '../../data/mock'
+import { Art, Avatar, EmptyState, Field, Modal, PageHeader, Stars, Stat, StatusBadge, Tabs, categoryIcon } from '../../components/ui'
 import { PROVIDER_ID, useStore } from '../../features/store'
-import { CATEGORIES, type BookingStatus, type Category, type Pkg } from '../../types'
+import { CATEGORIES, type Booking, type BookingStatus, type Category, type Pkg, type Thread } from '../../types'
 import { dateLong, money, uid } from '../../utils/format'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -20,10 +22,30 @@ const useMe = () => {
   return { ...s, me: s.vendors.find((v) => v.id === PROVIDER_ID)! }
 }
 
+function VerificationBanner() {
+  const { accounts, me } = useMe()
+  const acc = accounts.find((a) => a.business === me.name)
+  const status = acc?.status ?? 'pending'
+  const copy = {
+    verified: 'Your business is verified. You show a verified badge and appear in public search.',
+    pending: 'Your application is being reviewed. You will appear in public search once approved.',
+    rejected: 'Your application was rejected. Update your documents and contact support to apply again.',
+    suspended: 'Your account is suspended. You are hidden from public search until it is reinstated.',
+  }[status]
+  return (
+    <Card className="mb-6 flex flex-col gap-3 p-5 sm:flex-row sm:items-center">
+      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-secondary"><ShieldCheck className="h-5 w-5" aria-hidden /></span>
+      <div className="min-w-0 flex-1"><p className="font-bold">Verification status</p><p className="text-sm text-slate-600">{copy}</p></div>
+      <StatusBadge status={status} />
+    </Card>
+  )
+}
+
 export function ProviderOverview() {
   const { me, bookings, threads, blockedDates } = useMe()
   const inbox = bookings.filter((b) => b.vendorId === PROVIDER_ID)
   const pending = inbox.filter((b) => b.status === 'pending')
+  const upcoming = inbox.filter((b) => b.status === 'accepted' && b.eventDate).sort((a, b) => (a.eventDate ?? '').localeCompare(b.eventDate ?? ''))
   const unread = threads.filter((t) => t.vendorId === PROVIDER_ID).reduce((n, t) => n + t.unread, 0)
   const checks = [
     { done: me.about.length > 40, label: 'Write your business description' },
@@ -33,77 +55,129 @@ export function ProviderOverview() {
     { done: me.verified, label: 'Get verified by our team' },
   ]
   const pct = Math.round((checks.filter((c) => c.done).length / checks.length) * 100)
+  const first = providerViews[providerViews.length - 1]
 
   return (
     <>
-      <PageHeader title={me.name} subtitle="Your business at a glance." action={me.verified ? <VerifiedBadge /> : <StatusBadge status="pending" />} />
+      <PageHeader title={me.name} subtitle="Your business at a glance." action={<Link to={`/vendors/${PROVIDER_ID}`} className={buttonVariants({ variant: 'outline' })}>View public page</Link>} />
+      <VerificationBanner />
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Stat icon={ClipboardList} label="Pending requests" value={pending.length} hint="Waiting for your reply" />
-        <Stat icon={Check} label="Accepted bookings" value={inbox.filter((b) => b.status === 'accepted').length} />
-        <Stat icon={MessageSquare} label="Unread messages" value={unread} />
-        <Stat icon={TrendingUp} label="Rating" value={me.rating.toFixed(1)} hint={`${me.reviewCount} reviews`} />
+        <Stat icon={MessageSquare} label="New enquiries" value={unread} hint="Unread messages" />
+        <Stat icon={ClipboardList} label="Pending bookings" value={pending.length} hint="Waiting for your reply" />
+        <Stat icon={Check} label="Accepted bookings" value={inbox.filter((b) => b.status === 'accepted').length} hint={`${upcoming.length} upcoming`} />
+        <Stat icon={TrendingUp} label="Profile views" value={first.views} hint="This week" />
       </div>
       <div className="mt-6 grid gap-6 lg:grid-cols-[1.4fr_1fr]">
-        <section className="rounded-2xl border bg-card text-card-foreground shadow-card p-5">
-          <div className="mb-3 flex items-center justify-between"><h2 className="text-lg font-extrabold">Needs your reply</h2><Link to="/provider/bookings" className="text-sm font-semibold text-teal-700 hover:underline">All requests</Link></div>
-          {pending.length === 0 ? <p className="text-sm text-slate-600">You’re all caught up.</p> : (
-            <ul className="divide-y divide-soft">{pending.map((b) => (
-              <li key={b.id} className="flex items-center justify-between gap-3 py-3">
-                <div className="min-w-0"><p className="truncate font-bold">{b.customer}</p><p className="truncate text-sm text-slate-500">{b.packageName} · {b.note || 'No message'}</p></div>
-                <StatusBadge status="pending" />
-              </li>))}</ul>
-          )}
-        </section>
-        <section className="rounded-2xl border bg-card text-card-foreground shadow-card p-5">
-          <h2 className="text-lg font-extrabold">Profile strength</h2>
-          <div className="mt-3 h-2.5 rounded-full bg-soft"><div className="h-full rounded-full bg-teal-600 transition-all" style={{ width: `${pct}%` }} /></div>
-          <p className="mt-1 text-sm font-semibold">{pct}% complete</p>
+        <div className="space-y-6">
+          <Card className="p-5">
+            <div className="mb-3 flex items-center justify-between"><h2 className="font-bold">Needs your reply</h2><Link to="/provider/bookings" className="text-sm font-semibold hover:underline">All requests</Link></div>
+            {pending.length === 0 ? <p className="py-4 text-sm text-slate-600">You’re all caught up.</p> : (
+              <ul className="divide-y">{pending.map((b) => (
+                <li key={b.id} className="flex items-center gap-3 py-3">
+                  <Avatar name={b.customer} size="sm" />
+                  <div className="min-w-0 flex-1"><p className="truncate text-sm font-bold">{b.customer}</p><p className="truncate text-xs text-slate-500">{b.packageName}{b.eventDate ? ` · ${dateLong(b.eventDate)}` : ''}</p></div>
+                  <StatusBadge status="pending" />
+                </li>))}</ul>
+            )}
+          </Card>
+          <Card className="p-5">
+            <h2 className="mb-3 font-bold">Upcoming events</h2>
+            {upcoming.length === 0 ? <p className="py-4 text-sm text-slate-600">Accepted bookings with an event date appear here.</p> : (
+              <ul className="space-y-3">{upcoming.map((b) => (
+                <li key={b.id} className="flex items-center gap-4">
+                  <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-black text-center text-white"><span><span className="block text-base font-extrabold leading-none">{new Date(b.eventDate + 'T00:00:00').getDate()}</span><span className="text-[10px]">{new Date(b.eventDate + 'T00:00:00').toLocaleString('en-US', { month: 'short' })}</span></span></div>
+                  <div className="min-w-0"><p className="truncate text-sm font-bold">{b.customer}</p><p className="text-xs text-slate-500">{b.packageName}</p></div>
+                </li>))}</ul>
+            )}
+          </Card>
+        </div>
+        <Card className="h-fit p-5">
+          <h2 className="font-bold">Profile completeness</h2>
+          <p className="mt-3 text-3xl font-extrabold">{pct}%</p>
+          <div className="mt-2 h-2 rounded-full bg-secondary"><div className="h-full rounded-full bg-black transition-all" style={{ width: `${pct}%` }} /></div>
           <ul className="mt-4 space-y-2 text-sm">{checks.map((c) => (
-            <li key={c.label} className={`flex items-center gap-2 ${c.done ? 'text-slate-500 line-through' : 'font-semibold'}`}>
-              <span className={`grid h-5 w-5 place-items-center rounded-full ${c.done ? 'bg-teal-600 text-white' : 'border border-soft'}`}>{c.done && <Check className="h-3 w-3" />}</span>{c.label}</li>))}</ul>
-        </section>
+            <li key={c.label} className={cn('flex items-center gap-2', c.done ? 'text-slate-500 line-through' : 'font-semibold')}>
+              <span className={cn('grid h-5 w-5 place-items-center rounded-full', c.done ? 'bg-black text-white' : 'border')}>{c.done && <Check className="h-3 w-3" />}</span>{c.label}</li>))}</ul>
+        </Card>
       </div>
     </>
   )
 }
 
 export function ProviderBookings() {
-  const { bookings, setBookingStatus, toast, addReport } = useMe()
+  const { bookings, setBookingStatus, toast, addReport, blockedDates } = useMe()
   const [reportFor, setReportFor] = useState<string | null>(null)
   const [reason, setReason] = useState('')
+  const [open, setOpen] = useState<Booking | null>(null)
   const [tab, setTab] = useState<'all' | BookingStatus>('pending')
   const inbox = bookings.filter((b) => b.vendorId === PROVIDER_ID)
   const list = tab === 'all' ? inbox : inbox.filter((b) => b.status === tab)
   const n = (s: BookingStatus) => inbox.filter((b) => b.status === s).length
-  const act = (id: string, s: BookingStatus) => { setBookingStatus(id, s); toast(s === 'accepted' ? 'Request accepted' : 'Request declined') }
+  const conflict = (b: Booking) => {
+    if (!b.eventDate) return null
+    if (blockedDates.includes(b.eventDate)) return 'You marked this date as unavailable.'
+    const other = inbox.find((x) => x.id !== b.id && x.status === 'accepted' && x.eventDate === b.eventDate)
+    return other ? `You already accepted ${other.customer} for this date.` : null
+  }
+  const act = (id: string, s: BookingStatus) => { setBookingStatus(id, s); setOpen(null); toast(s === 'accepted' ? 'Request accepted' : 'Request declined') }
 
   return (
     <>
-      <PageHeader title="Requests" subtitle="Accept or decline quote and booking requests. Agree payment directly with the customer." />
+      <PageHeader title="Booking requests" subtitle="Open a request to see the event details, then accept or decline. Agree payment directly with the customer." />
       <Tabs id="pb" value={tab} onChange={setTab} tabs={[{ value: 'pending', label: 'Pending', count: n('pending') }, { value: 'accepted', label: 'Accepted', count: n('accepted') }, { value: 'declined', label: 'Declined', count: n('declined') }, { value: 'all', label: 'All', count: inbox.length }]} />
-      <div className="mt-5 space-y-3">
-        {list.length === 0 ? <EmptyState icon={ClipboardList} title="No requests here" text="New requests appear as soon as customers send them." /> : list.map((b) => (
-          <article key={b.id} className="rounded-2xl border bg-card text-card-foreground shadow-card flex flex-col gap-4 p-5 lg:flex-row lg:items-center">
-            <div className="min-w-0 flex-1">
-              <p className="text-xs font-semibold text-teal-700">{b.kind === 'quote' ? 'Quote request' : 'Booking request'}</p>
-              <h2 className="text-lg font-bold">{b.customer}</h2>
-              <p className="text-sm text-slate-600">{b.packageName} · received {dateLong(b.createdAt)}</p>
-              {b.note && <p className="mt-1 text-sm text-slate-500">“{b.note}”</p>}
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <StatusBadge status={b.status} />
-              {b.status === 'pending' && <>
-                <Button className="!py-2 h-auto" onClick={() => act(b.id, 'accepted')}><Check className="h-4 w-4" /> Accept</Button>
-                <Button variant="outline" className="!py-2 h-auto" onClick={() => act(b.id, 'declined')}><X className="h-4 w-4" /> Decline</Button>
-              </>}
-              <Link to="/provider/messages" className={cn(buttonVariants({ variant: 'ghost' }), "!py-2 h-auto")}>Message</Link>
-              <Button variant="ghost" size="icon" className="text-slate-500 hover:text-black" aria-label={`Report ${b.customer}`} onClick={() => setReportFor(b.customer)}><Flag className="h-4 w-4" /></Button>
-            </div>
-          </article>))}
+      <div className="mt-5 grid gap-4 lg:grid-cols-2">
+        {list.length === 0 ? <div className="lg:col-span-2"><EmptyState icon={ClipboardList} title="No requests here" text="New requests appear as soon as customers send them." /></div> : list.map((b) => {
+          const warn = b.status === 'pending' ? conflict(b) : null
+          return (
+            <Card key={b.id} className="flex flex-col p-5">
+              <div className="flex items-start gap-3">
+                <Avatar name={b.customer} />
+                <div className="min-w-0 flex-1"><p className="font-bold">{b.customer}</p><p className="text-sm text-slate-600">{b.kind === 'quote' ? 'Quote request' : 'Booking request'} · {b.packageName}</p></div>
+                <StatusBadge status={b.status} />
+              </div>
+              <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                <div><dt className="text-xs text-slate-500">Event date</dt><dd className="font-semibold">{b.eventDate ? dateLong(b.eventDate) : 'Not set'}</dd></div>
+                <div><dt className="text-xs text-slate-500">Received</dt><dd className="font-semibold">{dateLong(b.createdAt)}</dd></div>
+              </dl>
+              {b.note && <p className="mt-3 rounded-2xl bg-secondary px-4 py-2.5 text-sm">“{b.note}”</p>}
+              {warn && <p role="alert" className="mt-3 flex items-start gap-2 rounded-2xl border border-black p-3 text-sm font-semibold"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden /> Date conflict: {warn}</p>}
+              <div className="mt-auto flex flex-wrap gap-2 border-t pt-4 mt-4">
+                <Button size="sm" variant="outline" onClick={() => setOpen(b)}>View details</Button>
+                {b.status === 'pending' && <>
+                  <Button size="sm" disabled={!!warn} onClick={() => act(b.id, 'accepted')}><Check className="h-4 w-4" /> Accept</Button>
+                  <Button size="sm" variant="outline" onClick={() => act(b.id, 'declined')}><X className="h-4 w-4" /> Decline</Button>
+                </>}
+                <Button size="sm" variant="ghost" aria-label={`Report ${b.customer}`} onClick={() => setReportFor(b.customer)}><Flag className="h-4 w-4" /></Button>
+              </div>
+            </Card>
+          )
+        })}
       </div>
+
+      <Modal open={!!open} onClose={() => setOpen(null)} title={open ? `${open.customer}’s request` : ''} wide>
+        {open && (() => {
+          const warn = open.status === 'pending' ? conflict(open) : null
+          return (
+            <div className="space-y-5">
+              <dl className="grid gap-4 text-sm sm:grid-cols-3">
+                {[['Requested package', open.packageName], ['Event date', open.eventDate ? dateLong(open.eventDate) : 'Not set'], ['Request type', open.kind === 'quote' ? 'Quote' : 'Booking']].map(([k, v]) => <div key={k}><dt className="text-xs text-slate-500">{k}</dt><dd className="font-semibold">{v}</dd></div>)}
+              </dl>
+              <div><p className="mb-1 text-sm font-semibold">Customer message</p><p className="rounded-2xl bg-secondary p-4 text-sm">{open.note || 'No message was included.'}</p></div>
+              {warn && <p role="alert" className="flex items-start gap-2 rounded-2xl border border-black p-3 text-sm font-semibold"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden /> Date conflict: {warn} Free the date in Availability before accepting.</p>}
+              <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-4">
+                <StatusBadge status={open.status} />
+                {open.status === 'pending' ? (
+                  <div className="flex gap-2"><Button variant="outline" onClick={() => act(open.id, 'declined')}>Decline</Button><Button disabled={!!warn} onClick={() => act(open.id, 'accepted')}>Accept request</Button></div>
+                ) : <Link to="/provider/messages" className={buttonVariants({ variant: 'outline' })}>Message customer</Link>}
+              </div>
+            </div>
+          )
+        })()}
+      </Modal>
+
       <Modal open={!!reportFor} onClose={() => setReportFor(null)} title={`Report ${reportFor}`}>
         <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); if (!reason.trim() || !reportFor) return; addReport(reportFor, reason.trim()); setReason(''); setReportFor(null); toast('Report sent to our team') }}>
-          <Field label="What happened?" hint="Our team reviews every report.">{(id) => <Textarea id={id} rows={4} required  value={reason} onChange={(e) => setReason(e.target.value)} />}</Field>
+          <Field label="What happened?" hint="Our team reviews every report.">{(id) => <Textarea id={id} rows={4} required value={reason} onChange={(e) => setReason(e.target.value)} />}</Field>
           <div className="flex justify-end gap-2"><Button type="button" variant="ghost" onClick={() => setReportFor(null)}>Cancel</Button><Button variant="destructive">Send report</Button></div>
         </form>
       </Modal>
@@ -112,9 +186,61 @@ export function ProviderBookings() {
 }
 
 export function ProviderMessages() {
-  const { threads } = useStore()
-  return (<><PageHeader title="Messages" subtitle="Reply to enquiries. Your conversation history is saved." />
-    <Chat side="provider" threads={threads.filter((t) => t.vendorId === PROVIDER_ID)} nameOf={(t) => t.customer} /></>)
+  const { threads, bookings } = useStore()
+  const [tab, setTab] = useState<'new' | 'waiting' | 'all'>('new')
+  const mine = threads.filter((t) => t.vendorId === PROVIDER_ID)
+  const lastFromCustomer = (t: Thread) => t.messages[t.messages.length - 1]?.from === 'customer'
+  const groups = { new: mine.filter(lastFromCustomer), waiting: mine.filter((t) => !lastFromCustomer(t)), all: mine }
+  const info = (t: Thread) => bookings.find((b) => b.vendorId === PROVIDER_ID && b.customer === t.customer)
+  return (
+    <>
+      <PageHeader title="Enquiries" subtitle="New enquiries need your reply. Awaiting customer means you replied last." />
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <Tabs id="pm" value={tab} onChange={setTab} tabs={[{ value: 'new', label: 'New', count: groups.new.length }, { value: 'waiting', label: 'Awaiting customer', count: groups.waiting.length }, { value: 'all', label: 'All', count: mine.length }]} />
+      </div>
+      <Chat key={tab} side="provider" threads={groups[tab]} nameOf={(t) => t.customer}
+        subtitleOf={(t) => { const b = info(t); return b ? `${b.packageName}${b.eventDate ? ` · ${dateLong(b.eventDate)}` : ''}` : undefined }} />
+    </>
+  )
+}
+
+export function ProviderPerformance() {
+  const { me, bookings } = useMe()
+  const inbox = bookings.filter((b) => b.vendorId === PROVIDER_ID)
+  const decided = inbox.filter((b) => b.status !== 'pending')
+  const rate = decided.length ? Math.round((decided.filter((b) => b.status === 'accepted').length / decided.length) * 100) : 0
+  const views = providerViews.reduce((n, w) => n + w.views, 0)
+  const enq = providerViews.reduce((n, w) => n + w.enquiries, 0)
+  const conv = enq ? Math.round((inbox.length / enq) * 100) : 0
+  const byPkg = useMemo(() => me.packages.map((p) => ({ name: p.name, requests: inbox.filter((b) => b.packageName === p.name).length })).sort((a, b) => b.requests - a.requests), [me.packages, inbox])
+  const axis = { tickLine: false, axisLine: false, fontSize: 12 } as const
+  return (
+    <>
+      <PageHeader title="Performance" subtitle="Based on the last six weeks of recorded activity. Weekly view counts are sample data." />
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Stat icon={Eye} label="Profile views" value={views.toLocaleString()} hint="Last 6 weeks" />
+        <Stat icon={MessageSquare} label="Enquiries received" value={enq} hint="Last 6 weeks" />
+        <Stat icon={TrendingUp} label="Enquiry to request" value={`${conv}%`} hint="Share that became a request" />
+        <Stat icon={Check} label="Acceptance rate" value={`${rate}%`} hint={`${decided.length} decided requests`} />
+      </div>
+      <div className="mt-6 grid gap-6 lg:grid-cols-2">
+        <Card className="p-5">
+          <h2 className="font-bold">Views and enquiries</h2>
+          <p className="text-sm text-slate-600">Views have grown every week since week 1.</p>
+          <div className="mt-4 h-60" role="img" aria-label="Line chart of weekly profile views and enquiries">
+            <ResponsiveContainer width="100%" height="100%"><LineChart data={providerViews} margin={{ left: -20 }}><CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E4E4E2" /><XAxis dataKey="week" {...axis} /><YAxis {...axis} /><Tooltip /><Line type="monotone" dataKey="views" name="Views" stroke="#000000" strokeWidth={2.5} dot={false} /><Line type="monotone" dataKey="enquiries" name="Enquiries" stroke="#A3A3A3" strokeWidth={2.5} dot={false} /></LineChart></ResponsiveContainer>
+          </div>
+        </Card>
+        <Card className="p-5">
+          <h2 className="font-bold">Most requested packages</h2>
+          <p className="text-sm text-slate-600">{byPkg[0]?.requests ? `${byPkg[0].name} is requested most.` : 'Requests by package will appear here.'}</p>
+          <div className="mt-4 h-60" role="img" aria-label="Bar chart of requests per package">
+            <ResponsiveContainer width="100%" height="100%"><BarChart data={byPkg} layout="vertical" margin={{ left: 20 }}><CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#E4E4E2" /><XAxis type="number" allowDecimals={false} {...axis} /><YAxis type="category" dataKey="name" width={110} {...axis} /><Tooltip cursor={{ fill: '#FAFAFA' }} /><Bar dataKey="requests" name="Requests" fill="#000000" radius={[0, 6, 6, 0]} /></BarChart></ResponsiveContainer>
+          </div>
+        </Card>
+      </div>
+    </>
+  )
 }
 
 export function ProviderProfile() {
@@ -150,7 +276,7 @@ export function ProviderProfile() {
 }
 
 export function ProviderPortfolio() {
-  const { me, portfolio, addPortfolio, removePortfolio, toast } = useMe()
+  const { me, portfolio, addPortfolio, removePortfolio, movePortfolio, toast } = useMe()
   const [open, setOpen] = useState(false)
   const [title, setTitle] = useState('')
   const Icon = categoryIcon[me.category]
@@ -163,7 +289,7 @@ export function ProviderPortfolio() {
             <figure key={p.id} className="group rounded-2xl border bg-card text-card-foreground shadow-card overflow-hidden">
               <div className="relative"><Art src={p.src} hue={p.hue} icon={Icon} className="aspect-[4/3] w-full" label={p.title} />
                 <button className="absolute right-2 top-2 rounded-lg bg-white/95 p-2 text-black opacity-100 shadow transition sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100" aria-label={`Remove ${p.title}`} onClick={() => { removePortfolio(p.id); toast('Photo removed') }}><Trash2 className="h-4 w-4" /></button></div>
-              <figcaption className="p-3 text-sm font-semibold">{p.title}</figcaption>
+              <figcaption className="flex items-center justify-between gap-2 p-3 text-sm font-semibold"><span className="truncate">{p.title}</span><span className="flex shrink-0"><Button variant="ghost" size="icon" className="h-8 w-8" aria-label={`Move ${p.title} earlier`} onClick={() => movePortfolio(p.id, -1)}><ArrowLeft className="h-4 w-4" /></Button><Button variant="ghost" size="icon" className="h-8 w-8" aria-label={`Move ${p.title} later`} onClick={() => movePortfolio(p.id, 1)}><ArrowRight className="h-4 w-4" /></Button></span></figcaption>
             </figure>))}
         </div>
       )}

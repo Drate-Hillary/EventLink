@@ -2,11 +2,11 @@ import { categoryPhotos, photo } from '../data/images'
 import { toast as notify } from 'sonner'
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
 import {
-  allBookings, myEvents, providerAccounts as seedAccounts, reports as seedReports,
+  activitySeed, categorySeed, allBookings, myEvents, providerAccounts as seedAccounts, reports as seedReports,
   threads as seedThreads, users as seedUsers, vendors as seedVendors,
 } from '../data/mock'
 import type {
-  AccountStatus, Booking, BookingStatus, Category, EventItem, ProviderAccount, Report,
+  AccountStatus, ActivityEntry, Booking, CategoryItem, ReportStatus, BookingStatus, Category, EventItem, ProviderAccount, Report,
   Session, Thread, UserAccount, Vendor,
 } from '../types'
 import { uid } from '../utils/format'
@@ -41,6 +41,7 @@ interface Store {
   setAllocation: (eventId: string, cat: Category, amount: number) => void
 
   portfolio: PortfolioItem[]
+  movePortfolio: (id: string, dir: -1 | 1) => void
   addPortfolio: (title: string) => void
   removePortfolio: (id: string) => void
 
@@ -52,7 +53,12 @@ interface Store {
   users: UserAccount[]
   setUserStatus: (id: string, status: 'active' | 'suspended') => void
   reports: Report[]
-  resolveReport: (id: string) => void
+  updateReport: (id: string, status: ReportStatus, decision?: string) => void
+  requestInfo: (accountId: string, note: string) => void
+  activity: ActivityEntry[]
+  categories: CategoryItem[]
+  addCategory: (name: string, description: string) => void
+  updateCategory: (id: string, patch: Partial<CategoryItem>) => void
   addReport: (target: string, reason: string) => void
 
   toast: (text: string) => void
@@ -86,8 +92,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [accounts, setAccounts] = useState(seedAccounts)
   const [users, setUsers] = useState(seedUsers)
   const [reports, setReports] = useState(seedReports)
+  const [activity, setActivity] = useState<ActivityEntry[]>(activitySeed)
+  const [categories, setCategories] = useState<CategoryItem[]>(categorySeed)
 
   const toast = useCallback((text: string) => { notify(text) }, [])
+
+  const log = useCallback((action: string, target: string) => {
+    setActivity((a) => [{ id: uid(), actor: session?.name ?? 'Platform Admin', action, target, time: new Date().toISOString().slice(0, 16) }, ...a])
+  }, [session])
 
   const value = useMemo<Store>(() => ({
     session,
@@ -145,6 +157,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     portfolio,
     addPortfolio: (title) =>
       setPortfolio((p) => [...p, { id: uid(), title, hue: p.length, src: categoryPhotos.Catering[p.length % categoryPhotos.Catering.length] }]),
+    movePortfolio: (id, dir) =>
+      setPortfolio((p) => {
+        const i = p.findIndex((x) => x.id === id)
+        const j = i + dir
+        if (i < 0 || j < 0 || j >= p.length) return p
+        const next = [...p]; [next[i], next[j]] = [next[j], next[i]]
+        return next
+      }),
     removePortfolio: (id) => setPortfolio((p) => p.filter((x) => x.id !== id)),
 
     blockedDates,
@@ -154,20 +174,44 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setAccountStatus: (id, status) => {
       setAccounts((a) => a.map((x) => (x.id === id ? { ...x, status } : x)))
       const acc = accounts.find((x) => x.id === id)
+      if (acc) log(({ verified: 'Approved provider', rejected: 'Rejected provider', suspended: 'Suspended provider', pending: 'Moved provider to pending' } as Record<string, string>)[status], acc.business)
       if (acc) setVendors((v) => v.map((x) => (x.name === acc.business ? { ...x, verified: status === 'verified' } : x)))
     },
     users,
-    setUserStatus: (id, status) => setUsers((u) => u.map((x) => (x.id === id ? { ...x, status } : x))),
+    setUserStatus: (id, status) => {
+      setUsers((u) => u.map((x) => (x.id === id ? { ...x, status } : x)))
+      const who = users.find((x) => x.id === id)
+      if (who) log(status === 'suspended' ? `Suspended ${who.role}` : `Reactivated ${who.role}`, who.name)
+    },
     reports,
-    resolveReport: (id) => setReports((r) => r.map((x) => (x.id === id ? { ...x, resolved: true } : x))),
+    updateReport: (id, status, decision) => {
+      setReports((r) => r.map((x) => (x.id === id ? { ...x, status, decision: decision ?? x.decision } : x)))
+      const rep = reports.find((x) => x.id === id)
+      if (rep) log(status === 'resolved' ? 'Resolved report' : 'Started investigating report', rep.target)
+    },
+    requestInfo: (accountId, note) => {
+      const acc = accounts.find((x) => x.id === accountId)
+      if (acc) log(`Requested more information (${note || 'no note'})`, acc.business)
+    },
+    activity,
+    categories,
+    addCategory: (name, description) => {
+      setCategories((c) => [...c, { id: uid(), name, description, active: true }])
+      log('Added service category', name)
+    },
+    updateCategory: (id, patch) => {
+      setCategories((c) => c.map((x) => (x.id === id ? { ...x, ...patch } : x)))
+      const cat = categories.find((x) => x.id === id)
+      if (cat) log(patch.active === undefined ? 'Edited service category' : patch.active ? 'Activated service category' : 'Deactivated service category', patch.name ?? cat.name)
+    },
     addReport: (target, reason) =>
       setReports((r) => [
-        { id: uid(), reporter: session?.name ?? 'Anonymous', target, reason, date: new Date().toISOString().slice(0, 10), resolved: false },
+        { id: uid(), reporter: session?.name ?? 'Anonymous', target, reason, date: new Date().toISOString().slice(0, 10), status: 'open' as const },
         ...r,
       ]),
 
     toast,
-  }), [session, vendors, events, bookings, threads, allocations, portfolio, blockedDates, accounts, users, reports, toast])
+  }), [session, vendors, events, bookings, threads, allocations, portfolio, blockedDates, accounts, users, reports, activity, categories, log, toast])
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }

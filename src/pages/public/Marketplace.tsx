@@ -4,7 +4,6 @@ import { SearchX, SlidersHorizontal } from 'lucide-react'
 import { VendorCard } from '../../components/providers/VendorCard'
 import { EmptyState } from '../../components/ui'
 import { useStore } from '../../features/store'
-import { CATEGORIES } from '../../types'
 import { money } from '../../utils/format'
 import { Slider } from '@/components/ui/slider'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -14,7 +13,8 @@ import { Label } from '@/components/ui/label'
 import { SelectInput } from '@/components/ui'
 
 export default function Marketplace() {
-  const { vendors } = useStore()
+  const { vendors: allVendors, categories } = useStore()
+  const vendors = useMemo(() => allVendors.filter((v) => v.verified), [allVendors])
   const [params, setParams] = useSearchParams()
   const [showFilters, setShowFilters] = useState(false)
 
@@ -55,7 +55,7 @@ export default function Marketplace() {
         <Label htmlFor="cat" className="mb-1.5 block">Service</Label>
         <SelectInput id="cat"  value={category} onChange={(e) => set('category', e.target.value)}>
           <option value="">All services</option>
-          {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
+          {categories.filter((c) => c.active).map((c) => <option key={c.id}>{c.name}</option>)}
         </SelectInput>
       </div>
       <div>
