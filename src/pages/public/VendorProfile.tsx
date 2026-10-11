@@ -41,12 +41,12 @@ export default function VendorProfile() {
     <div className="container-x py-6 lg:py-10">
       <Link to="/vendors" className={cn(buttonVariants({ variant: 'ghost' }), "-ml-3 mb-3")}><ArrowLeft className="h-4 w-4" /> All vendors</Link>
 
-      <div className="grid gap-2 overflow-hidden rounded-3xl sm:grid-cols-4 sm:grid-rows-2">
+      <div className="grid grid-cols-1 gap-2 overflow-hidden rounded-3xl sm:grid-cols-4 sm:grid-rows-2">
         <Art src={vendor.photos[0]} hue={vendor.hue} icon={Icon} className="aspect-[16/9] sm:col-span-2 sm:row-span-2 sm:aspect-auto sm:min-h-72" label={`${vendor.name} cover`} />
         {tiles.slice(0, 4).map((t) => <Art key={t.id} src={t.src} hue={t.hue} className="hidden aspect-[4/3] sm:block" label={t.title} />)}
       </div>
 
-      <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_340px]">
+      <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-[1fr_340px]">
         <div className="min-w-0 space-y-10">
           <header>
             <div className="flex flex-wrap items-center gap-2">
@@ -63,7 +63,7 @@ export default function VendorProfile() {
 
           <section aria-labelledby="pk">
             <h2 id="pk" className="text-xl font-extrabold">Packages</h2>
-            <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
               {vendor.packages.map((p) => (
                 <article key={p.id} className="rounded-2xl border bg-card text-card-foreground shadow-card flex flex-col p-5">
                   <div className="flex items-start justify-between gap-3">

@@ -28,11 +28,12 @@ const statusStyle: Record<string, { cls: string; Icon: LucideIcon; label: string
   suspended: { cls: 'bg-slate-100 text-slate-700 ring-slate-500/20', Icon: XCircle, label: 'Suspended' },
   active: { cls: 'bg-emerald-50 text-emerald-700 ring-emerald-600/20', Icon: CheckCircle2, label: 'Active' },
   open: { cls: 'bg-amber-50 text-amber-700 ring-amber-600/20', Icon: Clock, label: 'Open' },
+  investigating: { cls: 'bg-blue-50 text-blue-700 ring-blue-600/20', Icon: Clock, label: 'Investigating' },
   resolved: { cls: 'bg-emerald-50 text-emerald-700 ring-emerald-600/20', Icon: CheckCircle2, label: 'Resolved' },
 }
 
 /** One badge for every status in the product, so colour always means the same thing. */
-export function StatusBadge({ status }: { status: BookingStatus | AccountStatus | 'active' | 'open' | 'resolved' }) {
+export function StatusBadge({ status }: { status: BookingStatus | AccountStatus | 'active' | 'open' | 'investigating' | 'resolved' }) {
   const { cls, Icon, label } = statusStyle[status]
   return (
     <Badge variant="outline" className={`border-transparent ring-1 ring-inset ${cls}`}>
@@ -144,7 +145,7 @@ export function Modal({ open, onClose, title, children, wide }: { open: boolean;
 
 export function Tabs<T extends string>({ tabs, value, onChange }: { tabs: { value: T; label: string; count?: number }[]; value: T; onChange: (v: T) => void; id?: string }) {
   return (
-    <ShTabs value={value} onValueChange={(v) => onChange(v as T)}>
+    <ShTabs value={value} onValueChange={(v) => onChange(v as T)} className="min-w-0 max-w-full">
       <TabsList>
         {tabs.map((t) => (
           <TabsTrigger key={t.value} value={t.value}>{t.label}{t.count !== undefined && <span className="ml-1.5 opacity-70">{t.count}</span>}</TabsTrigger>

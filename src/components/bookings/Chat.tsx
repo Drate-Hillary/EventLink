@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 
 /** Two-pane inbox shared by customers and providers. `side` decides who "I" am. */
-export function Chat({ side, threads, nameOf, initialId }: { side: 'customer' | 'provider'; threads: Thread[]; nameOf: (t: Thread) => string; initialId?: string | null }) {
+export function Chat({ side, threads, nameOf, initialId, subtitleOf }: { side: 'customer' | 'provider'; threads: Thread[]; nameOf: (t: Thread) => string; initialId?: string | null; subtitleOf?: (t: Thread) => string | undefined }) {
   const { sendMessage, markRead } = useStore()
   const [activeId, setActiveId] = useState<string | null>(initialId ?? null)
   const [text, setText] = useState('')
@@ -31,7 +31,7 @@ export function Chat({ side, threads, nameOf, initialId }: { side: 'customer' | 
   }
 
   return (
-    <Card className="grid h-[calc(100vh-14rem)] min-h-[28rem] overflow-hidden md:grid-cols-[300px_1fr]">
+    <Card className={`grid overflow-hidden md:h-[calc(100vh-14rem)] md:min-h-[28rem] md:grid-cols-[300px_1fr] ${active ? 'h-[calc(100dvh-10rem)] min-h-[26rem]' : ''}`}>
       <ul className={`divide-y divide-soft overflow-y-auto ${active ? 'hidden md:block' : ''}`} aria-label="Conversations">
         {threads.map((t) => {
           const last = t.messages[t.messages.length - 1]
@@ -41,6 +41,7 @@ export function Chat({ side, threads, nameOf, initialId }: { side: 'customer' | 
                 <Avatar name={nameOf(t)} />
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center justify-between gap-2"><span className="truncate font-bold">{nameOf(t)}</span>{t.unread > 0 && <span className="rounded-full bg-navy-900 px-2 text-xs font-bold text-white">{t.unread}</span>}</span>
+                  {subtitleOf?.(t) && <span className="block truncate text-xs font-semibold text-slate-700">{subtitleOf(t)}</span>}
                   <span className="block truncate text-sm text-slate-500">{last ? last.text : 'Say hello'}</span>
                 </span>
               </button>

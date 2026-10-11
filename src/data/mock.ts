@@ -111,13 +111,13 @@ export const myEvents: EventItem[] = [
 
 // Every request in the system. Customer sees those with customer === session name; provider (v1) sees vendorId === 'v1'.
 export const allBookings: Booking[] = [
-  { id: 'b1', eventId: 'e1', vendorId: 'v1', packageName: 'Plated Dinner', kind: 'booking', status: 'accepted', note: 'Vegetarian options for 15 guests.', createdAt: '2026-09-28', customer: 'Amara Okoye' },
-  { id: 'b2', eventId: 'e1', vendorId: 'v2', packageName: 'Full Day', kind: 'quote', status: 'pending', note: 'Do you travel to the venue near Lake Travis?', createdAt: '2026-10-05', customer: 'Amara Okoye' },
-  { id: 'b3', eventId: 'e1', vendorId: 'v3', packageName: 'All Night', kind: 'booking', status: 'declined', note: '', createdAt: '2026-10-01', customer: 'Amara Okoye' },
-  { id: 'b4', eventId: 'e2', vendorId: 'v1', packageName: 'Garden Buffet', kind: 'quote', status: 'pending', note: 'Is a birthday cake included?', createdAt: '2026-10-08', customer: 'Amara Okoye' },
-  { id: 'b5', eventId: 'x1', vendorId: 'v1', packageName: 'Grand Celebration', kind: 'booking', status: 'pending', note: 'Corporate gala, 180 guests, 14 Nov.', createdAt: '2026-10-09', customer: 'Northwind Ltd' },
-  { id: 'b6', eventId: 'x2', vendorId: 'v1', packageName: 'Garden Buffet', kind: 'quote', status: 'pending', note: 'Baby shower, 35 guests.', createdAt: '2026-10-10', customer: 'Jess Mwangi' },
-  { id: 'b7', eventId: 'x3', vendorId: 'v1', packageName: 'Plated Dinner', kind: 'booking', status: 'declined', note: 'Date clash with another event.', createdAt: '2026-09-15', customer: 'Tom Alvarez' },
+  { id: 'b1', eventId: 'e1', vendorId: 'v1', packageName: 'Plated Dinner', kind: 'booking', status: 'accepted', note: 'Vegetarian options for 15 guests.', createdAt: '2026-09-28', customer: 'Amara Okoye', eventDate: '2026-12-12' },
+  { id: 'b2', eventId: 'e1', vendorId: 'v2', packageName: 'Full Day', kind: 'quote', status: 'pending', note: 'Do you travel to the venue near Lake Travis?', createdAt: '2026-10-05', customer: 'Amara Okoye', eventDate: '2026-12-12' },
+  { id: 'b3', eventId: 'e1', vendorId: 'v3', packageName: 'All Night', kind: 'booking', status: 'declined', note: '', createdAt: '2026-10-01', customer: 'Amara Okoye', eventDate: '2026-12-12' },
+  { id: 'b4', eventId: 'e2', vendorId: 'v1', packageName: 'Garden Buffet', kind: 'quote', status: 'pending', note: 'Is a birthday cake included?', createdAt: '2026-10-08', customer: 'Amara Okoye', eventDate: '2027-02-20' },
+  { id: 'b5', eventId: 'x1', vendorId: 'v1', packageName: 'Grand Celebration', kind: 'booking', status: 'pending', note: 'Corporate gala, 180 guests, 14 Nov.', createdAt: '2026-10-09', customer: 'Northwind Ltd', eventDate: '2026-11-14' },
+  { id: 'b6', eventId: 'x2', vendorId: 'v1', packageName: 'Garden Buffet', kind: 'quote', status: 'pending', note: 'Baby shower, 35 guests.', createdAt: '2026-10-10', customer: 'Jess Mwangi', eventDate: '2026-11-21' },
+  { id: 'b7', eventId: 'x3', vendorId: 'v1', packageName: 'Plated Dinner', kind: 'booking', status: 'declined', note: 'Date clash with another event.', createdAt: '2026-09-15', customer: 'Tom Alvarez', eventDate: '2026-10-31' },
 ]
 
 export const threads: Thread[] = [
@@ -155,13 +155,47 @@ export const users: UserAccount[] = [
 ]
 
 export const reports: Report[] = [
-  { id: 'rp1', reporter: 'Jess Mwangi', target: 'Velvet Tent Events', reason: 'Asked for a deposit by bank transfer before confirming the booking.', date: '2026-10-09', resolved: false },
-  { id: 'rp2', reporter: 'Saffron & Salt Catering', target: 'Tom Alvarez', reason: 'Repeated requests then cancelled with no notice.', date: '2026-10-04', resolved: false },
-  { id: 'rp3', reporter: 'Amara Okoye', target: 'Quick Snaps', reason: 'Profile photos copied from another photographer.', date: '2026-09-21', resolved: true },
+  { id: 'rp1', reporter: 'Jess Mwangi', target: 'Velvet Tent Events', reason: 'Asked for a deposit by bank transfer before confirming the booking.', date: '2026-10-09', status: 'open' },
+  { id: 'rp2', reporter: 'Saffron & Salt Catering', target: 'Tom Alvarez', reason: 'Repeated requests then cancelled with no notice.', date: '2026-10-04', status: 'investigating', decision: 'Contacted the customer for their side of the story.' },
+  { id: 'rp3', reporter: 'Amara Okoye', target: 'Quick Snaps', reason: 'Profile photos copied from another photographer.', date: '2026-09-21', status: 'resolved', decision: 'Photos matched another account. Provider rejected.' },
 ]
 
 export const monthlySignups = [
   { month: 'May', customers: 42, providers: 9 }, { month: 'Jun', customers: 58, providers: 12 },
   { month: 'Jul', customers: 71, providers: 15 }, { month: 'Aug', customers: 96, providers: 18 },
   { month: 'Sep', customers: 124, providers: 24 }, { month: 'Oct', customers: 88, providers: 17 },
+]
+
+export const activitySeed = [
+  { id: 'l1', actor: 'Platform Admin', action: 'Approved provider', target: 'Saffron & Salt Catering', time: '2026-03-03T09:12' },
+  { id: 'l2', actor: 'Platform Admin', action: 'Approved provider', target: 'Lumen Lane Photography', time: '2026-02-15T14:40' },
+  { id: 'l3', actor: 'Platform Admin', action: 'Rejected provider', target: 'Quick Snaps', time: '2026-09-21T11:05' },
+  { id: 'l4', actor: 'Platform Admin', action: 'Suspended customer', target: 'Tom Alvarez', time: '2026-10-05T16:20' },
+  { id: 'l5', actor: 'Platform Admin', action: 'Resolved report', target: 'Quick Snaps', time: '2026-09-22T10:00' },
+]
+
+export const categorySeed = [
+  { id: 'c1', name: 'Catering', description: 'Food, drink and service staff', active: true },
+  { id: 'c2', name: 'Photography', description: 'Photo and video coverage', active: true },
+  { id: 'c3', name: 'DJs & Music', description: 'DJs, bands and sound systems', active: true },
+  { id: 'c4', name: 'Tents & Seating', description: 'Tents, tables and chairs', active: true },
+  { id: 'c5', name: 'Decor', description: 'Florals, styling and lighting', active: true },
+]
+
+export const verificationOutcomes = [
+  { month: 'May', approved: 7, rejected: 2 }, { month: 'Jun', approved: 10, rejected: 2 },
+  { month: 'Jul', approved: 12, rejected: 3 }, { month: 'Aug', approved: 15, rejected: 3 },
+  { month: 'Sep', approved: 21, rejected: 3 }, { month: 'Oct', approved: 11, rejected: 4 },
+]
+
+export const requestTrend = [
+  { month: 'May', quotes: 31, bookings: 12 }, { month: 'Jun', quotes: 44, bookings: 19 },
+  { month: 'Jul', quotes: 58, bookings: 27 }, { month: 'Aug', quotes: 83, bookings: 38 },
+  { month: 'Sep', quotes: 112, bookings: 55 }, { month: 'Oct', quotes: 74, bookings: 33 },
+]
+
+export const providerViews = [
+  { week: 'Wk 1', views: 142, enquiries: 9 }, { week: 'Wk 2', views: 188, enquiries: 13 },
+  { week: 'Wk 3', views: 171, enquiries: 11 }, { week: 'Wk 4', views: 236, enquiries: 17 },
+  { week: 'Wk 5', views: 264, enquiries: 19 }, { week: 'Wk 6', views: 298, enquiries: 22 },
 ]

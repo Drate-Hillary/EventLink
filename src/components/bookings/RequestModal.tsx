@@ -24,7 +24,7 @@ export function RequestModal({ vendor, open, onClose, initialPackage }: { vendor
 
   const submit = () => {
     if (!eventId) return setError('Choose the event this request is for.')
-    createRequest({ eventId, vendorId: vendor.id, packageName: pkg, kind, note: note.trim() })
+    createRequest({ eventId, vendorId: vendor.id, packageName: pkg, kind, note: note.trim(), eventDate: myEvents.find((e) => e.id === eventId)?.date })
     toast(kind === 'quote' ? 'Quote request sent' : 'Booking request sent')
     onClose()
     navigate('/customer#requests')

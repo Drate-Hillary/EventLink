@@ -7,7 +7,6 @@ import { Button, buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { photo } from '../../data/images'
 import { CUSTOMER_NAME, useStore } from '../../features/store'
-import { CATEGORIES } from '../../types'
 import { dateLong, daysUntil, money, timeShort } from '../../utils/format'
 import { CustomerBookings, CustomerBudget, CustomerEvents, CustomerMessages } from './Customer'
 
@@ -21,7 +20,8 @@ function Block({ id, children }: { id: string; children: ReactNode }) {
 }
 
 function FindProviders() {
-  const { vendors } = useStore()
+  const { vendors: allVendors, categories } = useStore()
+  const vendors = useMemo(() => allVendors.filter((v) => v.verified), [allVendors])
   const [q, setQ] = useState('')
   const [category, setCategory] = useState('')
   const [location, setLocation] = useState('')
@@ -41,16 +41,16 @@ function FindProviders() {
     <>
       <PageHeader section title="Find providers" subtitle="Search by service and location, then open a profile to request a quote."
         action={<Link to={`/vendors?${params}`} className={buttonVariants({ variant: 'outline' })}>Open full search <ArrowRight className="h-4 w-4" /></Link>} />
-      <div className="mb-6 grid gap-3 rounded-3xl border bg-ivory p-3 sm:grid-cols-2 xl:grid-cols-[1.3fr_1fr_1fr_auto]">
+      <div className="mb-6 grid grid-cols-1 gap-3 rounded-3xl border bg-ivory p-3 sm:grid-cols-2 xl:grid-cols-[1.3fr_1fr_1fr_auto]">
         <Input aria-label="Business name" placeholder="Search by name" value={q} onChange={(e) => setQ(e.target.value)} className="bg-white" />
         <SelectInput aria-label="Service" value={category} onChange={(e) => setCategory(e.target.value)}>
-          <option value="">All services</option>{CATEGORIES.map((c) => <option key={c}>{c}</option>)}
+          <option value="">All services</option>{categories.filter((c) => c.active).map((c) => <option key={c.id}>{c.name}</option>)}
         </SelectInput>
         <Input aria-label="Location" placeholder="City" value={location} onChange={(e) => setLocation(e.target.value)} className="bg-white" />
         <Button variant={verified ? 'default' : 'outline'} aria-pressed={verified} onClick={() => setVerified((v) => !v)}>Verified only</Button>
       </div>
       {results.length ? (
-        <div className="grid gap-5 sm:grid-cols-2">{results.slice(0, 6).map((v) => <VendorCard key={v.id} vendor={v} />)}</div>
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">{results.slice(0, 6).map((v) => <VendorCard key={v.id} vendor={v} />)}</div>
       ) : (
         <EmptyState icon={SearchX} title="No providers match" text="Try another city or remove a filter." />
       )}
@@ -123,7 +123,7 @@ export default function CustomerHome() {
         <div className="relative overflow-hidden rounded-[2rem] bg-black text-white">
           <img src={photo.weddingBouquet} alt="" draggable={false} className="absolute inset-0 h-full w-full object-cover opacity-50" />
           <div className="absolute inset-0 bg-gradient-to-r from-black via-black/70 to-black/20" />
-          <div className="relative grid gap-8 p-6 sm:p-10 lg:grid-cols-[1.3fr_1fr] lg:items-end lg:p-12">
+          <div className="relative grid grid-cols-1 gap-8 p-6 sm:p-10 lg:grid-cols-[1.3fr_1fr] lg:items-end lg:p-12">
             <div>
               <h1 className="font-serif text-3xl font-semibold leading-tight sm:text-5xl">Welcome back, {first}</h1>
               <p className="mt-3 max-w-md text-white/80">
@@ -151,7 +151,7 @@ export default function CustomerHome() {
         </div>
       </div>
 
-      <div className="container-x grid gap-10 py-10 lg:grid-cols-[1fr_340px] lg:gap-12 lg:py-14">
+      <div className="container-x grid grid-cols-1 gap-10 py-10 lg:grid-cols-[1fr_340px] lg:gap-12 lg:py-14">
         <div className="min-w-0 space-y-16">
           <Block id="events"><CustomerEvents /></Block>
           <Block id="requests"><CustomerBookings /></Block>

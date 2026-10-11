@@ -4,7 +4,6 @@ import { SearchX, SlidersHorizontal } from 'lucide-react'
 import { VendorCard } from '../../components/providers/VendorCard'
 import { EmptyState } from '../../components/ui'
 import { useStore } from '../../features/store'
-import { CATEGORIES } from '../../types'
 import { money } from '../../utils/format'
 import { Slider } from '@/components/ui/slider'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -14,7 +13,8 @@ import { Label } from '@/components/ui/label'
 import { SelectInput } from '@/components/ui'
 
 export default function Marketplace() {
-  const { vendors } = useStore()
+  const { vendors: allVendors, categories } = useStore()
+  const vendors = useMemo(() => allVendors.filter((v) => v.verified), [allVendors])
   const [params, setParams] = useSearchParams()
   const [showFilters, setShowFilters] = useState(false)
 
@@ -55,7 +55,7 @@ export default function Marketplace() {
         <Label htmlFor="cat" className="mb-1.5 block">Service</Label>
         <SelectInput id="cat"  value={category} onChange={(e) => set('category', e.target.value)}>
           <option value="">All services</option>
-          {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
+          {categories.filter((c) => c.active).map((c) => <option key={c.id}>{c.name}</option>)}
         </SelectInput>
       </div>
       <div>
@@ -86,7 +86,7 @@ export default function Marketplace() {
     <div className="container-x py-8 lg:py-12">
       <h1 className="text-2xl font-extrabold sm:text-3xl">Find event vendors</h1>
       <p className="mt-1 text-slate-600">{results.length} {results.length === 1 ? 'vendor matches' : 'vendors match'} your search.</p>
-      <div className="mt-6 grid gap-8 lg:grid-cols-[280px_1fr]">
+      <div className="mt-6 grid grid-cols-1 gap-8 lg:grid-cols-[280px_1fr]">
         <aside>
           <Button variant="outline" className="w-full lg:hidden" onClick={() => setShowFilters((s) => !s)} aria-expanded={showFilters}><SlidersHorizontal className="h-4 w-4" /> Filters</Button>
           <div className={`${showFilters ? 'mt-3 block' : 'hidden'} rounded-2xl border bg-card text-card-foreground shadow-card p-5 lg:sticky lg:top-24 lg:mt-0 lg:block`}>{filters}</div>
@@ -99,7 +99,7 @@ export default function Marketplace() {
             </SelectInput>
           </div>
           {results.length ? (
-            <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">{results.map((v) => <VendorCard key={v.id} vendor={v} />)}</div>
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">{results.map((v) => <VendorCard key={v.id} vendor={v} />)}</div>
           ) : (
             <EmptyState icon={SearchX} title="No vendors match these filters" text="Try a nearby city, a higher price limit or fewer filters." action={<Button onClick={() => setParams({}, { replace: true })}>Clear filters</Button>} />
           )}
