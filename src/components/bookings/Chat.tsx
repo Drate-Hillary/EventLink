@@ -31,7 +31,7 @@ export function Chat({ side, threads, nameOf, initialId, subtitleOf }: { side: '
   }
 
   return (
-    <Card className="grid h-[calc(100vh-14rem)] min-h-[28rem] overflow-hidden md:grid-cols-[300px_1fr]">
+    <Card className={`grid overflow-hidden md:h-[calc(100vh-14rem)] md:min-h-[28rem] md:grid-cols-[300px_1fr] ${active ? 'h-[calc(100dvh-10rem)] min-h-[26rem]' : ''}`}>
       <ul className={`divide-y divide-soft overflow-y-auto ${active ? 'hidden md:block' : ''}`} aria-label="Conversations">
         {threads.map((t) => {
           const last = t.messages[t.messages.length - 1]
