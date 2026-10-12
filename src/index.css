@@ -17,7 +17,6 @@
   html { scroll-behavior: smooth; font-size: 13.5px; }
   body {
     @apply bg-white font-sans text-black antialiased;
-    font-feature-settings: 'ss01';
   }
   h1, h2, h3, h4 { @apply tracking-tight; }
   :focus-visible { @apply outline outline-2 outline-offset-2 outline-teal-600; }
@@ -39,3 +38,8 @@
 @layer base {
   * { @apply border-border; }
 }
+
+/* Compact dashboards (admin and vendor): smaller text and tighter corners */
+html.dash-mode { font-size: 12px; --radius: 0.375rem; }
+.dash-mode .rounded-xl { border-radius: 0.375rem; }
+.dash-mode .rounded-2xl, .dash-mode .rounded-3xl { border-radius: 0.5rem; }

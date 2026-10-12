@@ -132,3 +132,25 @@ Both are grouped by `public`, `customer`, `provider` and `admin`.
 - "Request more information" is recorded in the activity log but does not notify the provider.
 - A category added by an admin appears in the public filter, but no provider can be assigned to it yet.
 - Dev and install quirk: dependencies are installed with `--legacy-peer-deps`.
+
+## Docker
+
+The production setup runs behind nginx with Redis on a private network.
+
+```bash
+cp .env.example .env        # then set REDIS_PASSWORD
+docker compose up -d --build
+# open http://localhost:8080
+```
+
+| Service | Role | Network |
+|---|---|---|
+| `web` | nginx serving the built app, proxying `/api/` | `edge` (published on `WEB_PORT`, default 8080) and `backend` |
+| `redis` | Redis 7, password protected, persisted in the `redis-data` volume | `backend` only |
+| `api` | Placeholder for your backend, off by default (`--profile api`) | `backend` only |
+
+- **Routing:** nginx falls back to `index.html` for every other path, so deep links such as `/provider/bookings` work on refresh. Hashed files under `/assets/` are cached for a year, `index.html` is never cached, and responses are gzip compressed.
+- **API:** `/api/*` is proxied to `http://api:3000` with a rate limit. Until an `api` service exists, it returns 502. `GET /healthz` is the health check.
+- **Networking:** `backend` is an internal network with no route to the outside, so Redis cannot be reached from the host or the internet. Only nginx is published.
+- **Hot reload dev:** `docker compose -f docker-compose.dev.yml up` serves Vite on http://localhost:5173.
+- Nothing in the front end uses Redis yet. It is there for the backend to use for sessions, caching and rate limiting, through `REDIS_URL`.
