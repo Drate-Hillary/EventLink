@@ -7,7 +7,7 @@ export default {
   theme: {
     extend: {
       borderRadius: { lg: 'var(--radius)', md: 'calc(var(--radius) - 2px)', sm: 'calc(var(--radius) - 4px)' },
-      fontFamily: { sans: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'], serif: ['"Playfair Display"', 'Georgia', 'serif'] },
+      fontFamily: { sans: ['OpenAISans', 'ui-sans-serif', 'system-ui', 'sans-serif'], serif: ['OpenAISans', 'ui-sans-serif', 'system-ui', 'sans-serif'] },
       colors: {
         border: 'hsl(var(--border))', input: 'hsl(var(--input))', ring: 'hsl(var(--ring))',
         background: 'hsl(var(--background))', foreground: 'hsl(var(--foreground))',
