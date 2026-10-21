@@ -1,0 +1,99 @@
+/*
+ * OpenAI Sans: the single typeface for the whole project.
+ * Files live in /public/fonts and are served from /fonts/.
+ * Weights: 300 Light, 400 Regular, 500 Medium, 600 Semibold, 700 Bold, each with an italic.
+ * font-display: swap shows text immediately in the fallback font, then swaps once loaded.
+ */
+@font-face {
+  font-family: 'OpenAISans';
+  src: url('/fonts/OpenAISans-Light.woff2') format('woff2');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'OpenAISans';
+  src: url('/fonts/OpenAISans-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'OpenAISans';
+  src: url('/fonts/OpenAISans-Medium.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'OpenAISans';
+  src: url('/fonts/OpenAISans-Semibold.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'OpenAISans';
+  src: url('/fonts/OpenAISans-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'OpenAISans';
+  src: url('/fonts/OpenAISans-LightItalic.woff2') format('woff2');
+  font-weight: 300;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'OpenAISans';
+  src: url('/fonts/OpenAISans-RegularItalic.woff2') format('woff2');
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'OpenAISans';
+  src: url('/fonts/OpenAISans-MediumItalic.woff2') format('woff2');
+  font-weight: 500;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'OpenAISans';
+  src: url('/fonts/OpenAISans-SemiboldItalic.woff2') format('woff2');
+  font-weight: 600;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'OpenAISans';
+  src: url('/fonts/OpenAISans-BoldItalic.woff2') format('woff2');
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+
+:root {
+  --font-sans: 'OpenAISans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+html {
+  font-family: var(--font-sans);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Form controls do not inherit the font by default */
+button, input, select, textarea, optgroup {
+  font-family: inherit;
+}
+
+/* Headings use the same family, slightly tighter */
+h1, h2, h3, h4 {
+  font-family: var(--font-sans);
+  letter-spacing: -0.02em;
+}

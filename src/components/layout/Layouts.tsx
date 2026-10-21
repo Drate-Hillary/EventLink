@@ -183,6 +183,11 @@ export function DashboardLayout({ role }: { role: 'provider' | 'admin' }) {
   const { pathname } = useLocation()
   const [open, setOpen] = useState(false)
   const groups = nav[role]
+  useEffect(() => {
+    const root = document.documentElement
+    root.classList.add('dash-mode')
+    return () => root.classList.remove('dash-mode')
+  }, [])
 
   const unread = threads.filter((t) => t.vendorId === 'v1').reduce((n, t) => n + t.unread, 0)
   const pendingReq = bookings.filter((b) => b.vendorId === 'v1' && b.status === 'pending').length
@@ -260,7 +265,7 @@ export function DashboardLayout({ role }: { role: 'provider' | 'admin' }) {
             </div>
           )}
         </AnimatePresence>
-        <main className="flex-1 p-4 sm:p-6 lg:p-8"><div className="mx-auto max-w-6xl"><Outlet /></div></main>
+        <main className="flex-1 p-4 sm:p-6 lg:p-8"><div className="mx-auto max-w-[88rem]"><Outlet /></div></main>
       </div>
     </div>
   )
