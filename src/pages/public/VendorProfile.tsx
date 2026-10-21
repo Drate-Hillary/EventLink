@@ -13,7 +13,7 @@ import { cn } from '@/lib/utils'
 
 export default function VendorProfile() {
   const { id } = useParams()
-  const { vendors, session, openThread, portfolio, addReport, toast } = useStore()
+  const { vendors, session, openThread, addReport, toast } = useStore()
   const navigate = useNavigate()
   const vendor = vendors.find((v) => v.id === id)
   const [req, setReq] = useState<{ open: boolean; pkg?: string }>({ open: false })
@@ -30,11 +30,12 @@ export default function VendorProfile() {
   }
 
   const Icon = categoryIcon[vendor.category]
-  const tiles = vendor.id === 'v1' ? portfolio : Array.from({ length: 6 }, (_, i) => ({ id: String(i), title: `${vendor.category} project ${i + 1}`, hue: (vendor.hue + i * 28) % 360, src: vendor.photos[(i + 1) % vendor.photos.length] }))
+  const tiles = vendor.portfolio?.length ? vendor.portfolio : Array.from({ length: 6 }, (_, i) => ({ id: String(i), title: `${vendor.category} project ${i + 1}`, hue: (vendor.hue + i * 28) % 360, src: vendor.photos[(i + 1) % vendor.photos.length] }))
 
-  const message = () => {
+  const message = async () => {
     if (session?.role !== 'customer') return navigate('/login')
-    navigate(`/customer?thread=${openThread(vendor.id)}#messages`)
+    const thread = await openThread(vendor.id)
+    if (thread) navigate(`/customer?thread=${thread}#messages`)
   }
 
   return (

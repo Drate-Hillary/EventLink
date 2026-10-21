@@ -9,7 +9,7 @@ import { photo } from '../../data/images'
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
 import { Chat } from '../../components/bookings/Chat'
 import { EmptyState, Field, Modal, PageHeader, StatusBadge, Tabs } from '../../components/ui'
-import { CUSTOMER_NAME, useStore } from '../../features/store'
+import { useStore } from '../../features/store'
 import { CATEGORIES, type BookingStatus, type Category, type EventItem } from '../../types'
 import { dateLong, daysUntil, money } from '../../utils/format'
 import { Button, buttonVariants } from '@/components/ui/button'
@@ -135,9 +135,9 @@ export function CustomerEvents() {
 
 /* ---------- Requests ---------- */
 export function CustomerBookings() {
-  const { bookings, vendors, events } = useStore()
+  const { bookings, vendors, events, session } = useStore()
   const [tab, setTab] = useState<'all' | BookingStatus>('all')
-  const mine = bookings.filter((b) => b.customer === CUSTOMER_NAME)
+  const mine = bookings.filter((b) => b.customerId === session?.id)
   const list = tab === 'all' ? mine : mine.filter((b) => b.status === tab)
   const n = (s: BookingStatus) => mine.filter((b) => b.status === s).length
 
@@ -177,9 +177,9 @@ export function CustomerBookings() {
 
 /* ---------- Messages ---------- */
 export function CustomerMessages() {
-  const { threads, vendors } = useStore()
+  const { threads, vendors, session } = useStore()
   const [params] = useSearchParams()
-  const mine = threads.filter((t) => t.customer === CUSTOMER_NAME)
+  const mine = threads.filter((t) => t.customerId === session?.id)
   return (
     <>
       <PageHeader section title="Messages" subtitle="Your full conversation history with providers." />
