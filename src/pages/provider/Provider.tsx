@@ -7,9 +7,9 @@ import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Too
 import { Chat } from '../../components/bookings/Chat'
 import { providerViews } from '../../data/mock'
 import { Art, Avatar, EmptyState, Field, Modal, PageHeader, Stars, Stat, StatusBadge, Tabs, categoryIcon } from '../../components/ui'
-import { PROVIDER_ID, useStore } from '../../features/store'
-import { CATEGORIES, type Booking, type BookingStatus, type Category, type Pkg, type Thread } from '../../types'
-import { dateLong, money, uid } from '../../utils/format'
+import { useStore } from '../../features/store'
+import { type Booking, type BookingStatus, type Category, type Pkg, type Thread } from '../../types'
+import { dateLong, money } from '../../utils/format'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -20,7 +20,8 @@ import { SelectInput } from '@/components/ui'
 
 const useMe = () => {
   const s = useStore()
-  return { ...s, me: s.vendors.find((v) => v.id === PROVIDER_ID)! }
+  // DashboardLayout only renders provider pages once myVendorId is known.
+  return { ...s, me: s.vendors.find((v) => v.id === s.myVendorId)! }
 }
 
 function VerificationBanner() {
@@ -43,11 +44,11 @@ function VerificationBanner() {
 }
 
 export function ProviderOverview() {
-  const { me, bookings, threads, blockedDates } = useMe()
-  const inbox = bookings.filter((b) => b.vendorId === PROVIDER_ID)
+  const { me, bookings, threads, blockedDates, myVendorId } = useMe()
+  const inbox = bookings.filter((b) => b.vendorId === myVendorId)
   const pending = inbox.filter((b) => b.status === 'pending')
   const upcoming = inbox.filter((b) => b.status === 'accepted' && b.eventDate).sort((a, b) => (a.eventDate ?? '').localeCompare(b.eventDate ?? ''))
-  const unread = threads.filter((t) => t.vendorId === PROVIDER_ID).reduce((n, t) => n + t.unread, 0)
+  const unread = threads.filter((t) => t.vendorId === myVendorId).reduce((n, t) => n + t.unread, 0)
   const checks = [
     { done: me.about.length > 40, label: 'Write your business description' },
     { done: me.packages.length > 0, label: 'Add at least one package' },
@@ -60,7 +61,7 @@ export function ProviderOverview() {
 
   return (
     <>
-      <PageHeader title={me.name} subtitle="Your business at a glance." action={<Link to={`/vendors/${PROVIDER_ID}`} className={buttonVariants({ variant: 'outline' })}>View public page</Link>} />
+      <PageHeader title={me.name} subtitle="Your business at a glance." action={<Link to={`/vendors/${me.id}`} className={buttonVariants({ variant: 'outline' })}>View public page</Link>} />
       <VerificationBanner />
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Stat icon={MessageSquare} label="New enquiries" value={unread} hint="Unread messages" />
@@ -106,12 +107,12 @@ export function ProviderOverview() {
 }
 
 export function ProviderBookings() {
-  const { bookings, setBookingStatus, toast, addReport, blockedDates } = useMe()
+  const { bookings, setBookingStatus, toast, addReport, blockedDates, myVendorId } = useMe()
   const [reportFor, setReportFor] = useState<string | null>(null)
   const [reason, setReason] = useState('')
   const [open, setOpen] = useState<Booking | null>(null)
   const [tab, setTab] = useState<'all' | BookingStatus>('pending')
-  const inbox = bookings.filter((b) => b.vendorId === PROVIDER_ID)
+  const inbox = bookings.filter((b) => b.vendorId === myVendorId)
   const list = tab === 'all' ? inbox : inbox.filter((b) => b.status === tab)
   const n = (s: BookingStatus) => inbox.filter((b) => b.status === s).length
   const conflict = (b: Booking) => {
@@ -187,12 +188,12 @@ export function ProviderBookings() {
 }
 
 export function ProviderMessages() {
-  const { threads, bookings } = useStore()
+  const { threads, bookings, myVendorId } = useStore()
   const [tab, setTab] = useState<'new' | 'waiting' | 'all'>('new')
-  const mine = threads.filter((t) => t.vendorId === PROVIDER_ID)
+  const mine = threads.filter((t) => t.vendorId === myVendorId)
   const lastFromCustomer = (t: Thread) => t.messages[t.messages.length - 1]?.from === 'customer'
   const groups = { new: mine.filter(lastFromCustomer), waiting: mine.filter((t) => !lastFromCustomer(t)), all: mine }
-  const info = (t: Thread) => bookings.find((b) => b.vendorId === PROVIDER_ID && b.customer === t.customer)
+  const info = (t: Thread) => bookings.find((b) => b.vendorId === myVendorId && b.customerId === t.customerId)
   return (
     <>
       <PageHeader title="Enquiries" subtitle="New enquiries need your reply. Awaiting customer means you replied last." />
@@ -207,7 +208,7 @@ export function ProviderMessages() {
 
 export function ProviderPerformance() {
   const { me, bookings } = useMe()
-  const inbox = bookings.filter((b) => b.vendorId === PROVIDER_ID)
+  const inbox = bookings.filter((b) => b.vendorId === me.id)
   const decided = inbox.filter((b) => b.status !== 'pending')
   const rate = decided.length ? Math.round((decided.filter((b) => b.status === 'accepted').length / decided.length) * 100) : 0
   const views = providerViews.reduce((n, w) => n + w.views, 0)
@@ -245,7 +246,7 @@ export function ProviderPerformance() {
 }
 
 export function ProviderProfile() {
-  const { me, updateVendor, toast } = useMe()
+  const { me, updateVendor, toast, categories } = useMe()
   const [f, setF] = useState({ name: me.name, category: me.category as Category, phone: me.phone, email: me.email, about: me.about, areas: me.areas.join(', ') })
   const [err, setErr] = useState<Record<string, string>>({})
   const save = () => {
@@ -257,15 +258,15 @@ export function ProviderProfile() {
     if (!areas.length) e.areas = 'Add at least one location you serve.'
     setErr(e)
     if (Object.keys(e).length) return
-    updateVendor(PROVIDER_ID, { name: f.name.trim(), category: f.category, phone: f.phone, email: f.email, about: f.about, areas, location: areas[0] })
+    updateVendor(me.id, { name: f.name.trim(), category: f.category, phone: f.phone, email: f.email, about: f.about, areas, location: areas[0] })
     toast('Profile saved')
   }
   return (
     <>
-      <PageHeader title="Business profile" subtitle="This is what customers see on your public page." action={<Link to={`/vendors/${PROVIDER_ID}`} className={buttonVariants({ variant: 'outline' })}>Preview public page</Link>} />
+      <PageHeader title="Business profile" subtitle="This is what customers see on your public page." action={<Link to={`/vendors/${me.id}`} className={buttonVariants({ variant: 'outline' })}>Preview public page</Link>} />
       <form className="rounded-2xl border bg-card text-card-foreground shadow-card grid grid-cols-1 gap-4 p-5 sm:grid-cols-2 sm:p-6" noValidate onSubmit={(e) => { e.preventDefault(); save() }}>
         <Field label="Business name" error={err.name}>{(id) => <Input id={id}  value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} />}</Field>
-        <Field label="Service category">{(id) => <SelectInput id={id}  value={f.category} onChange={(e) => setF({ ...f, category: e.target.value as Category })}>{CATEGORIES.map((c) => <option key={c}>{c}</option>)}</SelectInput>}</Field>
+        <Field label="Service category">{(id) => <SelectInput id={id}  value={f.category} onChange={(e) => setF({ ...f, category: e.target.value as Category })}>{categories.filter((c) => c.active || c.name === f.category).map((c) => <option key={c.id}>{c.name}</option>)}</SelectInput>}</Field>
         <Field label="Contact email" error={err.email}>{(id) => <Input id={id} type="email"  value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} />}</Field>
         <Field label="Phone" error={err.phone}>{(id) => <Input id={id} type="tel"  value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} />}</Field>
         <div className="sm:col-span-2"><Field label="Locations you serve" error={err.areas} hint="Separate cities with commas. The first is your home base.">{(id) => <Input id={id}  value={f.areas} onChange={(e) => setF({ ...f, areas: e.target.value })} />}</Field></div>
@@ -280,6 +281,7 @@ export function ProviderPortfolio() {
   const { me, portfolio, addPortfolio, removePortfolio, movePortfolio, toast } = useMe()
   const [open, setOpen] = useState(false)
   const [title, setTitle] = useState('')
+  const [file, setFile] = useState<File | undefined>()
   const Icon = categoryIcon[me.category]
   return (
     <>
@@ -295,10 +297,10 @@ export function ProviderPortfolio() {
         </div>
       )}
       <Modal open={open} onClose={() => setOpen(false)} title="Add portfolio photo">
-        <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); if (!title.trim()) return; addPortfolio(title.trim()); setTitle(''); setOpen(false); toast('Photo added') }}>
+        <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); if (!title.trim()) return; addPortfolio(title.trim(), file); setTitle(''); setFile(undefined); setOpen(false); toast(file ? 'Uploading photo…' : 'Photo added') }}>
           <label className="grid cursor-pointer place-items-center rounded-2xl border-2 border-dashed border-soft bg-ivory p-8 text-center text-sm text-slate-600 hover:border-teal-600">
-            <ImagePlus className="mb-2 h-8 w-8 text-teal-600" aria-hidden /> Choose an image (JPG or PNG)
-            <input type="file" accept="image/*" className="sr-only" />
+            <ImagePlus className="mb-2 h-8 w-8 text-teal-600" aria-hidden /> {file ? file.name : 'Choose an image (JPG or PNG)'}
+            <input type="file" accept="image/*" className="sr-only" onChange={(e) => setFile(e.target.files?.[0])} />
           </label>
           <Field label="Caption">{(id) => <Input id={id} required  placeholder="e.g. Rooftop wedding dinner" value={title} onChange={(e) => setTitle(e.target.value)} />}</Field>
           <div className="flex justify-end gap-2"><Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button><Button>Add photo</Button></div>
@@ -309,13 +311,13 @@ export function ProviderPortfolio() {
 }
 
 export function ProviderPackages() {
-  const { me, updateVendor, toast } = useMe()
+  const { me, savePackage, deletePackage, toast } = useMe()
   const [edit, setEdit] = useState<Pkg | null>(null)
   const [isNew, setIsNew] = useState(false)
   const [includes, setIncludes] = useState('')
   const [err, setErr] = useState<Record<string, string>>({})
 
-  const open = (p?: Pkg) => { setErr({}); setIsNew(!p); const base = p ?? { id: uid(), name: '', price: 0, description: '', includes: [] }; setEdit(base); setIncludes(base.includes.join('\n')) }
+  const open = (p?: Pkg) => { setErr({}); setIsNew(!p); const base = p ?? { id: '', name: '', price: 0, description: '', includes: [] }; setEdit(base); setIncludes(base.includes.join('\n')) }
   const save = () => {
     if (!edit) return
     const e: Record<string, string> = {}
@@ -324,11 +326,10 @@ export function ProviderPackages() {
     setErr(e)
     if (Object.keys(e).length) return
     const pkg = { ...edit, includes: includes.split('\n').map((s) => s.trim()).filter(Boolean) }
-    const packages = isNew ? [...me.packages, pkg] : me.packages.map((p) => (p.id === pkg.id ? pkg : p))
-    updateVendor(PROVIDER_ID, { packages, priceFrom: Math.min(...packages.map((p) => p.price)) })
+    savePackage(pkg, isNew)
     toast('Package saved'); setEdit(null)
   }
-  const remove = (id: string) => { const packages = me.packages.filter((p) => p.id !== id); updateVendor(PROVIDER_ID, { packages, priceFrom: packages.length ? Math.min(...packages.map((p) => p.price)) : 0 }); toast('Package deleted') }
+  const remove = (id: string) => { deletePackage(id); toast('Package deleted') }
 
   return (
     <>

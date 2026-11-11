@@ -6,6 +6,9 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --legacy-peer-deps --no-audit --no-fund
 COPY . .
+# Vite inlines VITE_* vars at build time; .env is excluded by .dockerignore
+ARG VITE_SUPABASE_URL
+ARG VITE_SUPABASE_PUBLISHABLE_KEY
 RUN npm run build
 
 # ---- serve with nginx ----

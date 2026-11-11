@@ -2,7 +2,7 @@
 
 An event planning and services marketplace. Customers plan events and request quotes or bookings from vetted vendors. Vendors manage their business profile, packages, availability and requests. Admins verify vendors and keep the marketplace safe.
 
-This is a front-end prototype. All data is mock data held in memory, and there is no backend. Payments, escrow and delivery tracking are out of scope for this version.
+Data, auth and file storage are on [Supabase](https://supabase.com). Payments, escrow and delivery tracking are out of scope for this version.
 
 ## Tech stack
 
@@ -17,6 +17,7 @@ This is a front-end prototype. All data is mock data held in memory, and there i
 | Charts | Recharts |
 | Icons and toasts | `lucide-react`, `sonner` |
 | Fonts | Plus Jakarta Sans (UI) and Playfair Display (headings) |
+| Backend | Supabase (Postgres with row-level security, Auth, Storage, Realtime) |
 
 ## Getting started
 
@@ -30,17 +31,16 @@ npm run preview    # serve the production build
 
 Restart the dev server after editing `tailwind.config.js`, because Tailwind v3 config is not hot-reloaded.
 
-### Demo login
+### Database setup
 
-Login is simulated. Use any valid email address and a password of 6 or more characters, then pick a role.
+1. Create a Supabase project, then copy `.env.example` to `.env` and set `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` (Project Settings → API Keys).
+2. In the SQL editor, run each file in `supabase/migrations/` in name order, then `supabase/seed.sql`.
+3. Register through the app. To make an account an admin, run:
+   ```sql
+   update public.profiles set role = 'admin' where email = 'you@example.com';
+   ```
 
-| Role | Signs in as | Lands on |
-|---|---|---|
-| Customer | Amara Okoye | `/customer` |
-| Provider | Saffron & Salt Catering (vendor `v1`) | `/provider` |
-| Admin | Platform Admin | `/admin` |
-
-The session is stored in `localStorage` under `eventlink.session`. All other data resets on refresh.
+Customers and providers sign up at `/register`. A provider's business is created at sign-up and stays pending (hidden from the marketplace) until an admin approves it. The analytics charts on the admin and provider dashboards still use sample data from `src/data/mock.ts`.
 
 ## Roles and features
 
