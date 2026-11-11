@@ -6,7 +6,7 @@ import { Avatar, EmptyState, PageHeader, SelectInput } from '../../components/ui
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { photo } from '../../data/images'
-import { CUSTOMER_NAME, useStore } from '../../features/store'
+import { useStore } from '../../features/store'
 import { dateLong, daysUntil, money, timeShort } from '../../utils/format'
 import { CustomerBookings, CustomerBudget, CustomerEvents, CustomerMessages } from './Customer'
 
@@ -60,11 +60,11 @@ function FindProviders() {
 
 /** Right-hand rail: quick glance at budget and the latest conversations. */
 function Rail() {
-  const { events, allocations, threads, vendors } = useStore()
+  const { events, allocations, threads, vendors, session } = useStore()
   const next = [...events].sort((a, b) => a.date.localeCompare(b.date)).find((e) => daysUntil(e.date) >= 0) ?? events[0]
   const used = next ? Object.values(allocations[next.id] ?? {}).reduce((n, v) => n + (v ?? 0), 0) : 0
   const pct = next && next.budget ? Math.min(100, Math.round((used / next.budget) * 100)) : 0
-  const mine = threads.filter((t) => t.customer === CUSTOMER_NAME).slice(0, 3)
+  const mine = threads.filter((t) => t.customerId === session?.id).slice(0, 3)
 
   return (
     <aside className="space-y-5 lg:sticky lg:top-28 lg:self-start" aria-label="Summary">
@@ -113,9 +113,9 @@ export default function CustomerHome() {
   const { events, bookings, threads, session } = useStore()
   const next = [...events].sort((a, b) => a.date.localeCompare(b.date)).find((e) => daysUntil(e.date) >= 0)
   const first = session?.name.split(' ')[0] ?? 'there'
-  const pending = bookings.filter((b) => b.customer === CUSTOMER_NAME && b.status === 'pending').length
-  const accepted = bookings.filter((b) => b.customer === CUSTOMER_NAME && b.status === 'accepted').length
-  const unread = threads.filter((t) => t.customer === CUSTOMER_NAME).reduce((n, t) => n + t.unread, 0)
+  const pending = bookings.filter((b) => b.customerId === session?.id && b.status === 'pending').length
+  const accepted = bookings.filter((b) => b.customerId === session?.id && b.status === 'accepted').length
+  const unread = threads.filter((t) => t.customerId === session?.id).reduce((n, t) => n + t.unread, 0)
 
   return (
     <>

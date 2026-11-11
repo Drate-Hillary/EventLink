@@ -133,8 +133,9 @@ const nav: Record<'provider' | 'admin', NavGroup[]> = {
 }
 
 export function RequireRole({ role, children }: { role: Role; children: ReactNode }) {
-  const { session } = useStore()
+  const { session, ready } = useStore()
   const loc = useLocation()
+  if (!ready) return <div className="grid min-h-screen place-items-center text-sm text-slate-500" role="status">Loading…</div>
   if (!session) return <Navigate to="/login" state={{ from: loc.pathname }} replace />
   if (session.role !== role) return <Navigate to={home[session.role]} replace />
   return <>{children}</>
@@ -178,7 +179,7 @@ function Bell({ notes }: { notes: Note[] }) {
 }
 
 export function DashboardLayout({ role }: { role: 'provider' | 'admin' }) {
-  const { session, logout, threads, bookings, accounts, reports } = useStore()
+  const { session, logout, threads, bookings, accounts, reports, myVendorId, vendors } = useStore()
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const [open, setOpen] = useState(false)
@@ -189,8 +190,8 @@ export function DashboardLayout({ role }: { role: 'provider' | 'admin' }) {
     return () => root.classList.remove('dash-mode')
   }, [])
 
-  const unread = threads.filter((t) => t.vendorId === 'v1').reduce((n, t) => n + t.unread, 0)
-  const pendingReq = bookings.filter((b) => b.vendorId === 'v1' && b.status === 'pending').length
+  const unread = threads.filter((t) => t.vendorId === myVendorId).reduce((n, t) => n + t.unread, 0)
+  const pendingReq = bookings.filter((b) => b.vendorId === myVendorId && b.status === 'pending').length
   const pendingApps = accounts.filter((a) => a.status === 'pending').length
   const openReports = reports.filter((r) => r.status !== 'resolved').length
   const badge: Record<string, number> = role === 'provider'
@@ -265,7 +266,11 @@ export function DashboardLayout({ role }: { role: 'provider' | 'admin' }) {
             </div>
           )}
         </AnimatePresence>
-        <main className="flex-1 p-4 sm:p-6 lg:p-8"><div className="mx-auto max-w-[88rem]"><Outlet /></div></main>
+        <main className="flex-1 p-4 sm:p-6 lg:p-8"><div className="mx-auto max-w-[88rem]">
+          {role === 'provider' && !myVendorId
+            ? <p className="py-24 text-center text-sm text-slate-600" role="status">{vendors.length ? 'No business profile is linked to this account. Contact support.' : 'Loading your business…'}</p>
+            : <Outlet />}
+        </div></main>
       </div>
     </div>
   )
