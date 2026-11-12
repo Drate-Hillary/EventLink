@@ -141,11 +141,11 @@ export function RequireRole({ role, children }: { role: Role; children: ReactNod
   return <>{children}</>
 }
 
-interface Note { id: string; to: string; title: string; text: string }
-
-function Bell({ notes }: { notes: Note[] }) {
+export function NotificationBell() {
+  const { notifications, markNotificationRead, markAllNotificationsRead } = useStore()
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
+  const unread = notifications.filter((item) => !item.readAt).length
   useEffect(() => {
     if (!open) return
     const off = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false) }
@@ -155,19 +155,28 @@ function Bell({ notes }: { notes: Note[] }) {
   }, [open])
   return (
     <div ref={ref} className="relative">
-      <Button variant="outline" size="icon" aria-label={`Notifications, ${notes.length} new`} aria-expanded={open} onClick={() => setOpen((o) => !o)} className="relative">
+      <Button variant="outline" size="icon" aria-label={`Notifications, ${unread} unread`} aria-expanded={open} onClick={() => setOpen((o) => !o)} className="relative">
         <BellIcon />
-        {notes.length > 0 && <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-black px-1 text-[11px] font-bold text-white">{notes.length}</span>}
+        {unread > 0 && <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-black px-1 text-[11px] font-bold text-white">{unread}</span>}
       </Button>
       <AnimatePresence>
         {open && (
           <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.15 }}
             className="absolute right-0 z-50 mt-2 w-80 max-w-[90vw] overflow-hidden rounded-2xl border bg-white shadow-lift">
-            <p className="border-b px-4 py-3 text-sm font-bold">Notifications</p>
-            {notes.length === 0 ? <p className="px-4 py-8 text-center text-sm text-slate-600">You’re all caught up.</p> : (
+            <div className="flex items-center justify-between border-b px-4 py-3">
+              <p className="text-sm font-bold">Notifications</p>
+              {unread > 0 && <button className="text-xs font-semibold underline" onClick={markAllNotificationsRead}>Mark all read</button>}
+            </div>
+            {notifications.length === 0 ? <p className="px-4 py-8 text-center text-sm text-slate-600">You’re all caught up.</p> : (
               <ul className="max-h-80 divide-y overflow-y-auto">
-                {notes.map((n) => (
-                  <li key={n.id}><Link to={n.to} onClick={() => setOpen(false)} className="block px-4 py-3 transition hover:bg-accent"><p className="text-sm font-semibold">{n.title}</p><p className="text-xs text-slate-600">{n.text}</p></Link></li>
+                {notifications.map((item) => (
+                  <li key={item.id}>
+                    <Link to={item.href} onClick={() => { markNotificationRead(item.id); setOpen(false) }}
+                      className={cn('block px-4 py-3 transition hover:bg-accent', !item.readAt && 'bg-ivory')}>
+                      <p className="text-sm font-semibold">{item.title}</p>
+                      <p className="text-xs text-slate-600">{item.body}</p>
+                    </Link>
+                  </li>
                 ))}
               </ul>
             )}
@@ -197,16 +206,6 @@ export function DashboardLayout({ role }: { role: 'provider' | 'admin' }) {
   const badge: Record<string, number> = role === 'provider'
     ? { '/provider/messages': unread, '/provider/bookings': pendingReq }
     : { '/admin/verification': pendingApps, '/admin/reports': openReports }
-
-  const notes: Note[] = role === 'provider'
-    ? [
-        ...(pendingReq ? [{ id: 'n1', to: '/provider/bookings', title: `${pendingReq} request${pendingReq > 1 ? 's' : ''} waiting`, text: 'Accept or decline to keep customers informed.' }] : []),
-        ...(unread ? [{ id: 'n2', to: '/provider/messages', title: `${unread} unread message${unread > 1 ? 's' : ''}`, text: 'Customers are waiting for a reply.' }] : []),
-      ]
-    : [
-        ...(pendingApps ? [{ id: 'n1', to: '/admin/verification', title: `${pendingApps} provider application${pendingApps > 1 ? 's' : ''} to review`, text: 'Approve or reject to publish them.' }] : []),
-        ...(openReports ? [{ id: 'n2', to: '/admin/reports', title: `${openReports} open report${openReports > 1 ? 's' : ''}`, text: 'Review evidence and record a decision.' }] : []),
-      ]
 
   const current = groups.flatMap((g) => g.items).filter((i) => (i.end ? pathname === i.to : pathname.startsWith(i.to))).sort((a, b) => b.to.length - a.to.length)[0]
 
@@ -252,7 +251,7 @@ export function DashboardLayout({ role }: { role: 'provider' | 'admin' }) {
           </div>
           <div className="flex items-center gap-3">
             <Link to="/" className="hidden text-sm font-semibold hover:underline sm:block">View site</Link>
-            <Bell notes={notes} />
+            <NotificationBell />
             <div className="hidden items-center gap-2 rounded-full border py-1 pl-1 pr-3 sm:flex"><Avatar name={session?.name ?? 'U'} size="sm" /><span className="text-sm font-semibold">{session?.name?.split(' ')[0]}</span></div>
           </div>
         </header>

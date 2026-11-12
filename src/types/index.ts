@@ -25,6 +25,15 @@ export interface Booking {
 }
 export interface ChatMessage { id: string; from: 'customer' | 'provider'; text: string; time: string }
 export interface Thread { id: string; vendorId: string; customer: string; messages: ChatMessage[]; unread: number; customerId?: string }
+export interface AppNotification {
+  id: string
+  kind: 'booking' | 'message' | 'verification' | 'account' | 'report'
+  title: string
+  body: string
+  href: string
+  createdAt: string
+  readAt: string | null
+}
 export interface ProviderAccount {
   id: string; business: string; owner: string; category: Category; location: string
   status: AccountStatus; submitted: string; documents: string[]

@@ -1,5 +1,0 @@
-// use prisma-8
-
-// Prisma 8 data contract. The database connection lives in prisma.config.ts.
-// Add models here, then run `npm run db:emit` to regenerate contract.json and
-// contract.d.ts used by src/prisma/db.ts.
