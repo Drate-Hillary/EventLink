@@ -220,8 +220,15 @@ export function AdminVerification() {
       </Modal>
 
       <Modal open={!!asking} onClose={() => setAsking(null)} title={`Request information from ${asking?.business ?? ''}`}>
-        <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); if (!asking) return; requestInfo(asking.id, note.trim()); toast('Request sent to provider'); setAsking(null) }}>
-          <Field label="What do you need?" hint="The provider sees this note and can resubmit.">{(id) => <Textarea id={id} rows={4} required value={note} onChange={(e) => setNote(e.target.value)} />}</Field>
+        <form className="space-y-4" onSubmit={async (e) => {
+          e.preventDefault()
+          if (!asking) return
+          if (!await requestInfo(asking.id, note.trim())) return
+          toast('Request sent to provider')
+          setAsking(null)
+          setNote('')
+        }}>
+          <Field label="What do you need?" hint="The provider receives this note as an in-app notification.">{(id) => <Textarea id={id} rows={4} required maxLength={2000} value={note} onChange={(e) => setNote(e.target.value)} />}</Field>
           <div className="flex justify-end gap-2"><Button type="button" variant="ghost" onClick={() => setAsking(null)}>Cancel</Button><Button>Send request</Button></div>
         </form>
       </Modal>
