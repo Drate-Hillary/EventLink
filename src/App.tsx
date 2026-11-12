@@ -15,7 +15,6 @@ import { Login, Register } from './pages/public/Auth'
 import Landing from './pages/public/Landing'
 import Marketplace from './pages/public/Marketplace'
 import VendorProfile from './pages/public/VendorProfile'
-
 function ScrollManager() {
   const { pathname, hash } = useLocation()
   useEffect(() => {
