@@ -5,7 +5,7 @@ import { useStore } from '../../features/store'
 import { Avatar } from '../ui'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { Logo } from './Layouts'
+import { Logo, NotificationBell } from './Layouts'
 
 const customerSections = [
   { id: 'events', label: 'My events' },
@@ -21,8 +21,8 @@ export function CustomerLayout() {
   const navigate = useNavigate()
   const [active, setActive] = useState<string>('events')
 
-  const unread = threads.filter((t) => t.customer === 'Amara Okoye').reduce((n, t) => n + t.unread, 0)
-  const pending = bookings.filter((b) => b.customer === 'Amara Okoye' && b.status === 'pending').length
+  const unread = threads.filter((t) => t.customerId === session?.id).reduce((n, t) => n + t.unread, 0)
+  const pending = bookings.filter((b) => b.customerId === session?.id && b.status === 'pending').length
   const badge: Record<string, number> = { messages: unread, requests: pending }
 
   useEffect(() => {
@@ -60,6 +60,7 @@ export function CustomerLayout() {
           </nav>
           <div className="flex items-center gap-2">
             <Link to="/" className="hidden text-sm font-semibold hover:underline lg:block">Home</Link>
+            <NotificationBell />
             <Avatar name={session?.name ?? 'U'} size="sm" />
             <Button variant="ghost" size="icon" aria-label="Log out" onClick={() => { logout(); navigate('/') }}><LogOut /></Button>
           </div>

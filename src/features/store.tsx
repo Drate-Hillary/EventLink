@@ -3,7 +3,7 @@ import { toast as notify } from 'sonner'
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { supabase } from '../lib/supabase'
 import type {
-  AccountStatus, ActivityEntry, Booking, CategoryItem, ReportStatus, BookingStatus, Category, ChatMessage, EventItem, Pkg,
+  AccountStatus, ActivityEntry, AppNotification, Booking, CategoryItem, ReportStatus, BookingStatus, Category, ChatMessage, EventItem, Pkg,
   PortfolioItem, ProviderAccount, Report, Role, Session, Thread, UserAccount, Vendor,
 } from '../types'
 
@@ -38,6 +38,9 @@ interface Store {
   sendMessage: (threadId: string, from: 'customer' | 'provider', text: string) => void
   openThread: (vendorId: string) => Promise<string | null>
   markRead: (threadId: string) => void
+  notifications: AppNotification[]
+  markNotificationRead: (id: string) => void
+  markAllNotificationsRead: () => void
 
   allocations: Record<string, Partial<Record<Category, number>>>
   setAllocation: (eventId: string, cat: Category, amount: number) => void
@@ -56,7 +59,7 @@ interface Store {
   setUserStatus: (id: string, status: 'active' | 'suspended') => void
   reports: Report[]
   updateReport: (id: string, status: ReportStatus, decision?: string) => void
-  requestInfo: (accountId: string, note: string) => void
+  requestInfo: (accountId: string, note: string) => Promise<boolean>
   activity: ActivityEntry[]
   categories: CategoryItem[]
   addCategory: (name: string, description: string) => void
@@ -117,6 +120,10 @@ const toEvent = (r: any): EventItem => ({
   id: r.id, name: r.name, type: r.type, date: r.date ?? '', location: r.location,
   guests: r.guests, budget: Number(r.budget), categories: r.categories,
 })
+const toNotification = (r: any): AppNotification => ({
+  id: r.id, kind: r.kind, title: r.title, body: r.body, href: r.href,
+  createdAt: r.created_at, readAt: r.read_at,
+})
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
 const VENDOR_SELECT = '*, packages(*), reviews(*), portfolio_items(*), owner:profiles(full_name)'
@@ -128,6 +135,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [events, setEvents] = useState<EventItem[]>([])
   const [bookings, setBookings] = useState<Booking[]>([])
   const [threads, setThreads] = useState<Thread[]>([])
+  const [notifications, setNotifications] = useState<AppNotification[]>([])
   const [allocations, setAllocations] = useState<Store['allocations']>({})
   const [blockedDates, setBlockedDates] = useState<string[]>([])
   const [users, setUsers] = useState<UserAccount[]>([])
@@ -153,13 +161,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let current: string | null | undefined
     const resolve = async (u: { id: string } | null) => {
-      if (!u) { setSession(null); setReady(true); return }
+      if (!u) { setSession(null); setNotifications([]); setReady(true); return }
       const { data, error } = await supabase.from('profiles').select('full_name, email, role, status').eq('id', u.id).single()
       if (u.id !== current) return
-      if (error || !data || data.status === 'suspended') {
+      if (error) {
+        notify.error(`Could not restore your profile: ${error.message}`)
+        setSession(null)
+        setReady(true)
+        return
+      }
+      if (!data || data.status === 'suspended') {
         if (data?.status === 'suspended') notify.error('Your account is suspended. Contact support.')
-        setSession(null); setReady(true)
-        void supabase.auth.signOut()
+        else notify.error('Your account profile could not be found. Contact support.')
+        setSession(null)
+        setReady(true)
+        const { error: signOutError } = await supabase.auth.signOut()
+        if (signOutError) notify.error(`Could not sign out: ${signOutError.message}`)
         return
       }
       setSession({ id: u.id, name: data.full_name || data.email, email: data.email, role: data.role })
@@ -193,7 +210,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const role = session?.role
     const none = Promise.resolve({ data: null, error: null })
     const load = async () => {
-      const [cats, books, evs, allocs, blocked, profs, reps, acts] = await Promise.all([
+      const [cats, books, evs, allocs, blocked, profs, reps, acts, notes] = await Promise.all([
         supabase.from('categories').select('*').order('created_at'),
         role ? supabase.from('bookings').select('*').order('created_at', { ascending: false }) : none,
         role === 'customer' ? supabase.from('events').select('*').order('date') : none,
@@ -202,9 +219,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         role === 'admin' ? supabase.from('profiles').select('*').neq('role', 'admin').order('created_at', { ascending: false }) : none,
         role === 'admin' ? supabase.from('reports').select('*, profiles(full_name)').order('created_at', { ascending: false }) : none,
         role === 'admin' ? supabase.from('activity_log').select('*, profiles(full_name)').order('created_at', { ascending: false }).limit(200) : none,
+        role ? supabase.from('notifications').select('*').order('created_at', { ascending: false }).limit(50) : none,
       ])
       if (cancelled) return
-      fail('Could not load data', [cats, books, evs, allocs, blocked, profs, reps, acts].find((r) => r.error)?.error ?? null)
+      fail('Could not load data', [cats, books, evs, allocs, blocked, profs, reps, acts, notes].find((r) => r.error)?.error ?? null)
 
       setCategories((cats.data ?? []).map((c) => ({ id: c.id, name: c.name, description: c.description, active: c.active })))
       setBookings((books.data ?? []).map(toBooking))
@@ -216,6 +234,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setUsers((profs.data ?? []).map((u) => ({ id: u.id, name: u.full_name || u.email, email: u.email, role: u.role, status: u.status, joined: day(u.created_at) })))
       setReports((reps.data ?? []).map((r) => ({ id: r.id, reporter: r.profiles?.full_name ?? 'Unknown', target: r.target, reason: r.reason, date: day(r.created_at), status: r.status, decision: r.decision ?? undefined })))
       setActivity((acts.data ?? []).map((x) => ({ id: x.id, actor: x.profiles?.full_name ?? 'Admin', action: x.action, target: x.target, time: x.created_at.slice(0, 16) })))
+      setNotifications((notes.data ?? []).map(toNotification))
       if (role) await loadThreads(role); else setThreads([])
       await loadVendors()
     }
@@ -243,6 +262,29 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return () => { void supabase.removeChannel(channel) }
   }, [session?.role, loadThreads])
 
+  useEffect(() => {
+    if (!session) return
+
+    const channel = supabase.channel(`notifications:${session.id}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'notifications',
+        filter: `recipient_id=eq.${session.id}`,
+      }, (payload) => {
+        if (payload.eventType === 'INSERT') {
+          const item = toNotification(payload.new)
+          setNotifications((current) => [item, ...current.filter((n) => n.id !== item.id)].slice(0, 50))
+        } else if (payload.eventType === 'UPDATE') {
+          const item = toNotification(payload.new)
+          setNotifications((current) => current.map((n) => n.id === item.id ? item : n))
+        }
+      })
+      .subscribe()
+
+    return () => { void supabase.removeChannel(channel) }
+  }, [session])
+
   /* ---------- Budget writes are debounced (sliders fire on every step) ---------- */
   const allocTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
 
@@ -259,9 +301,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     login: async (email, password) => {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) return { error: error.message }
-      const { data: p } = await supabase.from('profiles').select('role, status').eq('id', data.user.id).single()
-      if (p?.status === 'suspended') return { error: 'Your account is suspended. Contact support.' }
-      return { role: p?.role }
+      const { data: p, error: profileError } = await supabase.from('profiles').select('role, status').eq('id', data.user.id).single()
+      if (profileError || !p) {
+        const { error: signOutError } = await supabase.auth.signOut()
+        if (signOutError) notify.error(`Could not sign out: ${signOutError.message}`)
+        return { error: profileError?.message ?? 'Your account profile could not be found. Contact support.' }
+      }
+      if (p.status === 'suspended') {
+        const { error: signOutError } = await supabase.auth.signOut()
+        if (signOutError) notify.error(`Could not sign out: ${signOutError.message}`)
+        return { error: 'Your account is suspended. Contact support.' }
+      }
+      return { role: p.role }
     },
     register: async ({ name, email, password, role, business, category }) => {
       const { data, error } = await supabase.auth.signUp({
@@ -271,7 +322,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (error) return { error: error.message }
       return { needsConfirmation: !data.session }
     },
-    logout: async () => { await supabase.auth.signOut() },
+    logout: async () => {
+      const { error } = await supabase.auth.signOut()
+      if (error) fail('Could not log out', error)
+    },
 
     vendors,
     myVendorId,
@@ -365,6 +419,30 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const col = session?.role === 'provider' ? 'vendor_unread' : 'customer_unread'
       void supabase.from('threads').update({ [col]: 0 }).eq('id', threadId).then(({ error }) => fail('Could not mark as read', error))
     },
+    notifications,
+    markNotificationRead: (id) => {
+      const item = notifications.find((n) => n.id === id)
+      if (!item || item.readAt) return
+      const readAt = new Date().toISOString()
+      setNotifications((items) => items.map((n) => n.id === id ? { ...n, readAt } : n))
+      void supabase.from('notifications').update({ read_at: readAt }).eq('id', id).is('read_at', null).then(({ error }) => {
+        if (fail('Could not mark notification as read', error)) {
+          setNotifications((items) => items.map((n) => n.id === id ? { ...n, readAt: null } : n))
+        }
+      })
+    },
+    markAllNotificationsRead: () => {
+      const unread = notifications.filter((n) => !n.readAt)
+      if (!unread.length || !session) return
+      const readAt = new Date().toISOString()
+      const ids = unread.map((n) => n.id)
+      setNotifications((items) => items.map((n) => ids.includes(n.id) ? { ...n, readAt } : n))
+      void supabase.from('notifications').update({ read_at: readAt }).in('id', ids).is('read_at', null).then(({ error }) => {
+        if (fail('Could not mark notifications as read', error)) {
+          setNotifications((items) => items.map((n) => ids.includes(n.id) ? { ...n, readAt: null } : n))
+        }
+      })
+    },
 
     allocations,
     setAllocation: (eventId, cat, amount) => {
@@ -448,9 +526,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         if (rep) log(status === 'resolved' ? 'Resolved report' : 'Started investigating report', rep.target)
       })
     },
-    requestInfo: (accountId, note) => {
+    requestInfo: async (accountId, note) => {
       const acc = accounts.find((x) => x.id === accountId)
-      if (acc) log(`Requested more information (${note || 'no note'})`, acc.business)
+      if (!acc) {
+        notify.error('Provider profile could not be found.')
+        return false
+      }
+      const { error } = await supabase.rpc('request_provider_information', {
+        p_vendor_id: accountId,
+        p_note: note.trim(),
+      })
+      if (fail('Could not send information request', error)) return false
+      log(`Requested more information (${note.trim()})`, acc.business)
+      return true
     },
     activity,
     categories,
@@ -479,7 +567,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     },
 
     toast,
-  }), [ready, session, vendors, myVendorId, me, events, bookings, threads, allocations, portfolio, blockedDates, accounts, users, reports, activity, categories, log, toast, fail, loadVendors])
+  }), [ready, session, vendors, myVendorId, me, events, bookings, threads, notifications, allocations, portfolio, blockedDates, accounts, users, reports, activity, categories, log, toast, fail, loadVendors])
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }

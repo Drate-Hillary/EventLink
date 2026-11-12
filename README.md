@@ -34,11 +34,21 @@ Restart the dev server after editing `tailwind.config.js`, because Tailwind v3 c
 ### Database setup
 
 1. Create a Supabase project, then copy `.env.example` to `.env` and set `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` (Project Settings → API Keys).
-2. In the SQL editor, run each file in `supabase/migrations/` in name order, then `supabase/seed.sql`.
-3. Register through the app. To make an account an admin, run:
+2. In the SQL editor, run each file in `supabase/migrations/` in name order, then `supabase/seed.sql`. If the original schema migrations were already applied, run only the new `20261112170000_notifications_and_write_guards.sql` migration.
+3. Register through the app. To bootstrap an admin, first create the user in Supabase Authentication → Users, then run this in the SQL Editor:
    ```sql
-   update public.profiles set role = 'admin' where email = 'you@example.com';
+   select public.bootstrap_admin('you@example.com');
    ```
+   The app-wiring migration also creates profile rows for Auth users that existed before the schema was installed.
+
+If the app reports `Could not find the table 'public.profiles' in the schema cache`, check the database in the SQL Editor:
+```sql
+select to_regclass('public.profiles');
+```
+If the result is `null`, apply the initial schema migration and app-wiring migration, then the notifications/write-guards migration, in filename order. If it returns `profiles`, refresh the Supabase API schema cache:
+```sql
+notify pgrst, 'reload schema';
+```
 
 Customers and providers sign up at `/register`. A provider's business is created at sign-up and stays pending (hidden from the marketplace) until an admin approves it. The analytics charts on the admin and provider dashboards still use sample data from `src/data/mock.ts`.
 
@@ -124,12 +134,13 @@ mockups/                     Design mockups (see below)
 
 Both are grouped by `public`, `customer`, `provider` and `admin`.
 
-## Known limitations
+## Backend and known limitations
 
-- There is no backend. Permissions, verification gating and data changes happen only in the browser, and real permission checks must be enforced server-side before launch.
-- Data resets on refresh. Only the login session persists.
+- Supabase Postgres stores profiles, provider businesses and packages, events, budgets, booking requests, messages, reports, and notifications. Row-level security policies enforce customer, provider, and admin access; apply the migrations above before using the app.
+- New messages, booking requests and status changes, provider applications and verification decisions, account status changes, and report activity create in-app notifications. Notifications update in real time; email and push delivery are not configured.
+- Promote the first administrator manually in SQL as shown above. The app does not expose admin registration.
+- Analytics charts on the admin and provider dashboards still use sample data from `src/data/mock.ts`.
 - Earlier months in admin charts and the weekly vendor view counts are sample data.
-- "Request more information" is recorded in the activity log but does not notify the provider.
 - A category added by an admin appears in the public filter, but no provider can be assigned to it yet.
 - Dev and install quirk: dependencies are installed with `--legacy-peer-deps`.
 
