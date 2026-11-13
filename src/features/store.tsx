@@ -9,13 +9,21 @@ import type {
 
 export type { PortfolioItem } from '../types'
 
-export interface RegisterInput { name: string; email: string; password: string; role: 'customer' | 'provider'; business?: string; category?: string }
+export interface RegisterInput {
+  name: string
+  email: string
+  password: string
+  role: 'customer' | 'provider'
+  business?: string
+  category?: string
+  guestRequestId?: string
+}
 
 interface Store {
   /** False until the saved auth session (if any) has been restored. */
   ready: boolean
   session: Session | null
-  login: (email: string, password: string) => Promise<{ error?: string; role?: Role }>
+  login: (email: string, password: string, guestRequestId?: string) => Promise<{ error?: string; role?: Role }>
   register: (input: RegisterInput) => Promise<{ error?: string; needsConfirmation?: boolean }>
   logout: () => Promise<void>
 
@@ -31,8 +39,15 @@ interface Store {
   deleteEvent: (id: string) => void
 
   bookings: Booking[]
-  createRequest: (r: Omit<Booking, 'id' | 'status' | 'createdAt' | 'customer'>) => void
-  setBookingStatus: (id: string, status: BookingStatus) => void
+  createRequest: (r: Omit<Booking, 'id' | 'status' | 'createdAt' | 'customer'> & {
+    eventId?: string
+    customer?: string
+    customerEmail?: string
+    customerPhone?: string
+    customerLocation?: string
+    guestRequestId?: string
+  }) => Promise<boolean>
+  setBookingStatus: (id: string, status: BookingStatus) => Promise<boolean>
   billingPriceUgx: number
   subscriptionPayments: SubscriptionPayment[]
   setBillingPrice: (priceUgx: number) => Promise<boolean>
@@ -111,6 +126,10 @@ const toAccount = (v: Vendor): ProviderAccount => ({
 const toBooking = (r: any): Booking => ({
   id: r.id, eventId: r.event_id ?? '', vendorId: r.vendor_id, customerId: r.customer_id, customer: r.customer_name,
   packageName: r.package_name, kind: r.kind, status: r.status, note: r.note, createdAt: day(r.created_at), eventDate: r.event_date ?? undefined,
+  customerEmail: r.customer_email ?? undefined,
+  customerPhone: r.customer_phone ?? undefined,
+  customerLocation: r.customer_location ?? undefined,
+  guestRequestId: r.guest_request_id ?? undefined,
 })
 
 const toMessage = (m: any): ChatMessage => ({ id: m.id, from: m.sender, text: m.body, time: m.created_at })
@@ -173,7 +192,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   /* ---------- Auth ---------- */
   useEffect(() => {
     let current: string | null | undefined
-    const resolve = async (u: { id: string } | null) => {
+    const resolve = async (u: { id: string; user_metadata?: Record<string, unknown> } | null) => {
       setSubscriptionPayments([])
       setBillingPriceUgx(0)
       if (!u) { setSession(null); setNotifications([]); setReady(true); return }
@@ -193,6 +212,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const { error: signOutError } = await supabase.auth.signOut()
         if (signOutError) notify.error(`Could not sign out: ${signOutError.message}`)
         return
+      }
+      if (data.role === 'customer' && typeof u.user_metadata?.guest_request_id === 'string') {
+        const { error: claimError } = await supabase.rpc('claim_guest_booking_requests')
+        if (claimError) notify.error(`Could not link your booking request to your account: ${claimError.message}`)
+        if (u.id !== current) return
       }
       setSession({ id: u.id, name: data.full_name || data.email, email: data.email, role: data.role })
       setReady(true)
@@ -308,6 +332,41 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return () => { void supabase.removeChannel(channel) }
   }, [session?.role, loadThreads])
 
+  /* ---------- Live booking updates ---------- */
+  useEffect(() => {
+    if (!session) return
+    if (session.role === 'provider' && !myVendorId) return
+
+    const filter = session.role === 'provider'
+      ? `vendor_id=eq.${myVendorId}`
+      : session.role === 'customer'
+        ? `customer_id=eq.${session.id}`
+        : undefined
+    const channel = supabase.channel(`bookings:${session.id}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'bookings',
+        ...(filter ? { filter } : {}),
+      }, (payload) => {
+        if (payload.eventType === 'DELETE') {
+          setBookings((current) => current.filter((booking) => booking.id !== payload.old.id))
+          return
+        }
+
+        const item = toBooking(payload.new)
+        setBookings((current) => current.some((booking) => booking.id === item.id)
+          ? current.map((booking) => booking.id === item.id ? item : booking)
+          : [item, ...current])
+        if (item.status === 'accepted' && (session.role === 'customer' || session.role === 'provider')) {
+          void loadThreads(session.role)
+        }
+      })
+      .subscribe()
+
+    return () => { void supabase.removeChannel(channel) }
+  }, [session, myVendorId, loadThreads])
+
   useEffect(() => {
     if (!session) return
 
@@ -344,7 +403,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const value = useMemo<Store>(() => ({
     ready,
     session,
-    login: async (email, password) => {
+    login: async (email, password, guestRequestId) => {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) return { error: error.message }
       const { data: p, error: profileError } = await supabase.from('profiles').select('role, status').eq('id', data.user.id).single()
@@ -358,12 +417,25 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         if (signOutError) notify.error(`Could not sign out: ${signOutError.message}`)
         return { error: 'Your account is suspended. Contact support.' }
       }
+      if (p.role === 'customer' && guestRequestId) {
+        const { error: claimError } = await supabase.rpc('claim_guest_booking_requests', { p_guest_request_id: guestRequestId })
+        if (claimError) notify.error(`Could not link your booking request to your account: ${claimError.message}`)
+      }
       return { role: p.role }
     },
-    register: async ({ name, email, password, role, business, category }) => {
+    register: async ({ name, email, password, role, business, category, guestRequestId }) => {
       const { data, error } = await supabase.auth.signUp({
         email, password,
-        options: { data: { full_name: name, role, business, category }, emailRedirectTo: `${window.location.origin}/login` },
+        options: {
+          data: {
+            full_name: name,
+            role,
+            business,
+            category,
+            ...(guestRequestId ? { guest_request_id: guestRequestId } : {}),
+          },
+          emailRedirectTo: `${window.location.origin}/login`,
+        },
       })
       if (error) return { error: error.message }
       return { needsConfirmation: !data.session }
@@ -419,21 +491,83 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     },
 
     bookings,
-    createRequest: (r) => {
-      if (!session) return
-      const id = crypto.randomUUID()
-      setBookings((b) => [{ ...r, id, customerId: session.id, status: 'pending', createdAt: new Date().toISOString().slice(0, 10), customer: session.name }, ...b])
-      void supabase.from('bookings').insert({
-        id, event_id: r.eventId || null, vendor_id: r.vendorId, customer_id: session.id, package_name: r.packageName,
-        kind: r.kind, note: r.note, event_date: r.eventDate || null,
-      }).then(({ error }) => { if (fail('Could not send request', error)) setBookings((b) => b.filter((x) => x.id !== id)) })
+    createRequest: async (r) => {
+      const now = new Date().toISOString()
+      const date = now.slice(0, 10)
+      const targetVendor = vendors.find((v) => v.id === r.vendorId)
+      if (!targetVendor) {
+        notify.error('The selected provider could not be found.')
+        return false
+      }
+      if (session && session.role !== 'customer') {
+        notify.error('Only customer accounts can send service requests.')
+        return false
+      }
+      const targets = session
+        ? targetVendor.verified ? [targetVendor] : []
+        : vendors.filter((v) => v.category === targetVendor.category && v.verified)
+      if (targets.length === 0) {
+        notify.error('There are no verified providers available for this service.')
+        return false
+      }
+      const guestName = (r.customer || session?.name || '').trim()
+      if (!session && (!guestName || !r.customerEmail?.trim() || !r.customerPhone?.trim() || !r.customerLocation?.trim())) {
+        notify.error('Guest requests require a name, email, phone number and location.')
+        return false
+      }
+      const guestRequestId = r.guestRequestId ?? crypto.randomUUID()
+      const created = targets.map((vendor) => ({
+        ...r,
+        id: crypto.randomUUID(),
+        vendorId: vendor.id,
+        customerId: session?.id ?? null,
+        status: 'pending' as const,
+        createdAt: date,
+        customer: guestName,
+        customerEmail: r.customerEmail,
+        customerPhone: r.customerPhone,
+        customerLocation: r.customerLocation,
+        guestRequestId,
+      }))
+
+      const rows = created.map((item) => ({
+          id: item.id,
+          event_id: item.eventId || null,
+          vendor_id: item.vendorId,
+          customer_id: session?.id ?? null,
+          customer_name: guestName,
+          customer_email: session ? null : item.customerEmail?.trim() ?? null,
+          customer_phone: session ? null : item.customerPhone?.trim() ?? null,
+          customer_location: session ? null : item.customerLocation?.trim() ?? null,
+          guest_request_id: session ? null : item.guestRequestId ?? guestRequestId,
+          package_name: item.packageName,
+          kind: item.kind,
+          status: 'pending' as const,
+          note: item.note,
+          event_date: item.eventDate || null,
+      }))
+      try {
+        const { error } = await supabase.from('bookings').insert(rows)
+        if (fail('Could not send request', error)) return false
+      } catch (error) {
+        notify.error(`Could not save request: ${error instanceof Error ? error.message : String(error)}`)
+        return false
+      }
+
+      setBookings((current) => [...created.filter((item) => !current.some((booking) => booking.id === item.id)), ...current])
+      return true
     },
-    setBookingStatus: (id, status) => {
+    setBookingStatus: async (id, status) => {
       const before = bookings.find((x) => x.id === id)?.status
       setBookings((b) => b.map((x) => (x.id === id ? { ...x, status } : x)))
-      void supabase.from('bookings').update({ status }).eq('id', id).then(({ error }) => {
-        if (fail('Could not update request', error) && before) setBookings((b) => b.map((x) => (x.id === id ? { ...x, status: before } : x)))
-      })
+      if (!session) return true
+      const { error } = await supabase.from('bookings').update({ status }).eq('id', id)
+      if (fail('Could not update request', error)) {
+        if (before) setBookings((b) => b.map((x) => (x.id === id ? { ...x, status: before } : x)))
+        return false
+      }
+      if (status === 'accepted') await loadThreads(session.role)
+      return true
     },
     billingPriceUgx,
     subscriptionPayments,
@@ -651,7 +785,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     },
 
     toast,
-  }), [ready, session, vendors, myVendorId, me, events, bookings, threads, notifications, allocations, portfolio, blockedDates, accounts, users, reports, activity, categories, billingPriceUgx, subscriptionPayments, log, toast, fail, loadVendors, loadBillingPayments])
+  }), [ready, session, vendors, myVendorId, me, events, bookings, threads, notifications, allocations, portfolio, blockedDates, accounts, users, reports, activity, categories, billingPriceUgx, subscriptionPayments, log, toast, fail, loadVendors, loadThreads, loadBillingPayments])
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }

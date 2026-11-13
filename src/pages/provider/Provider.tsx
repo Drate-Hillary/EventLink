@@ -1,5 +1,5 @@
 import { useMemo, useState, type FormEvent } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import {
   AlertTriangle, ArrowLeft, ArrowRight, Check, ClipboardList, CreditCard, Eye, Flag, ImagePlus, MessageSquare, Pencil, Plus, ReceiptText, ShieldCheck, Star, Trash2, TrendingUp, X,
 } from 'lucide-react'
@@ -107,7 +107,7 @@ export function ProviderOverview() {
 }
 
 export function ProviderBookings() {
-  const { bookings, setBookingStatus, toast, addReport, blockedDates, myVendorId, subscriptionPayments } = useMe()
+  const { bookings, threads, setBookingStatus, toast, addReport, blockedDates, myVendorId, subscriptionPayments } = useMe()
   const [reportFor, setReportFor] = useState<string | null>(null)
   const [reason, setReason] = useState('')
   const [open, setOpen] = useState<Booking | null>(null)
@@ -124,7 +124,12 @@ export function ProviderBookings() {
     const other = inbox.find((x) => x.id !== b.id && x.status === 'accepted' && x.eventDate === b.eventDate)
     return other ? `You already accepted ${other.customer} for this date.` : null
   }
-  const act = (id: string, s: BookingStatus) => { setBookingStatus(id, s); setOpen(null); toast(s === 'accepted' ? 'Request accepted' : 'Request declined') }
+  const threadFor = (b: Booking) => threads.find((t) => t.vendorId === b.vendorId && t.customerId === b.customerId)
+  const act = async (id: string, s: BookingStatus) => {
+    if (!await setBookingStatus(id, s)) return
+    setOpen(null)
+    toast(s === 'accepted' ? 'Request accepted. You can now message the customer.' : 'Request declined')
+  }
 
   return (
     <>
@@ -137,6 +142,7 @@ export function ProviderBookings() {
       <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
         {list.length === 0 ? <div className="lg:col-span-2"><EmptyState icon={ClipboardList} title="No requests here" text="New requests appear as soon as customers send them." /></div> : list.map((b) => {
           const warn = b.status === 'pending' ? conflict(b) : null
+          const thread = threadFor(b)
           return (
             <Card key={b.id} className="flex flex-col p-5">
               <div className="flex items-start gap-3">
@@ -156,6 +162,12 @@ export function ProviderBookings() {
                   <Button size="sm" disabled={!!warn || !canAccept} onClick={() => act(b.id, 'accepted')}><Check className="h-4 w-4" /> Accept</Button>
                   <Button size="sm" variant="outline" onClick={() => act(b.id, 'declined')}><X className="h-4 w-4" /> Decline</Button>
                 </>}
+                {b.status === 'accepted' && b.customerId && <Link
+                  to={thread ? `/provider/messages?thread=${thread.id}` : '/provider/messages'}
+                  className={buttonVariants({ variant: 'outline', size: 'sm' })}
+                >
+                  <MessageSquare className="h-4 w-4" /> Message customer
+                </Link>}
                 <Button size="sm" variant="ghost" aria-label={`Report ${b.customer}`} onClick={() => setReportFor(b.customer)}><Flag className="h-4 w-4" /></Button>
               </div>
             </Card>
@@ -166,6 +178,7 @@ export function ProviderBookings() {
       <Modal open={!!open} onClose={() => setOpen(null)} title={open ? `${open.customer}’s request` : ''} wide>
         {open && (() => {
           const warn = open.status === 'pending' ? conflict(open) : null
+          const thread = threadFor(open)
           return (
             <div className="space-y-5">
               <dl className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-3">
@@ -177,7 +190,12 @@ export function ProviderBookings() {
                 <StatusBadge status={open.status} />
                 {open.status === 'pending' ? (
                   <div className="flex gap-2"><Button variant="outline" onClick={() => act(open.id, 'declined')}>Decline</Button><Button disabled={!!warn || !canAccept} onClick={() => act(open.id, 'accepted')}>Accept request</Button></div>
-                ) : <Link to="/provider/messages" className={buttonVariants({ variant: 'outline' })}>Message customer</Link>}
+                ) : open.status === 'accepted' && open.customerId ? <Link
+                  to={thread ? `/provider/messages?thread=${thread.id}` : '/provider/messages'}
+                  className={buttonVariants({ variant: 'outline' })}
+                >
+                  <MessageSquare className="h-4 w-4" /> Message customer
+                </Link> : open.status === 'accepted' ? <p className="text-sm text-slate-600">Chat is available after the customer links this request to an account.</p> : null}
               </div>
             </div>
           )
@@ -196,10 +214,15 @@ export function ProviderBookings() {
 
 export function ProviderMessages() {
   const { threads, bookings, myVendorId } = useStore()
+  const [params] = useSearchParams()
   const [tab, setTab] = useState<'new' | 'waiting' | 'all'>('new')
   const mine = threads.filter((t) => t.vendorId === myVendorId)
   const lastFromCustomer = (t: Thread) => t.messages[t.messages.length - 1]?.from === 'customer'
   const groups = { new: mine.filter(lastFromCustomer), waiting: mine.filter((t) => !lastFromCustomer(t)), all: mine }
+  const requestedThread = mine.find((t) => t.id === params.get('thread'))
+  const visibleThreads = requestedThread && !groups[tab].some((t) => t.id === requestedThread.id)
+    ? [...groups[tab], requestedThread]
+    : groups[tab]
   const info = (t: Thread) => bookings.find((b) => b.vendorId === myVendorId && b.customerId === t.customerId)
   return (
     <>
@@ -207,7 +230,7 @@ export function ProviderMessages() {
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <Tabs id="pm" value={tab} onChange={setTab} tabs={[{ value: 'new', label: 'New', count: groups.new.length }, { value: 'waiting', label: 'Awaiting customer', count: groups.waiting.length }, { value: 'all', label: 'All', count: mine.length }]} />
       </div>
-      <Chat key={tab} side="provider" threads={groups[tab]} nameOf={(t) => t.customer}
+      <Chat key={`${tab}:${params.get('thread') ?? ''}`} side="provider" threads={visibleThreads} initialId={params.get('thread')} nameOf={(t) => t.customer}
         subtitleOf={(t) => { const b = info(t); return b ? `${b.packageName}${b.eventDate ? ` · ${dateLong(b.eventDate)}` : ''}` : undefined }} />
     </>
   )
