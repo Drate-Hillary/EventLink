@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { Briefcase, ShieldCheck, User } from 'lucide-react'
+import { Briefcase, Eye, EyeOff, ShieldCheck, User } from 'lucide-react'
 import { Logo } from '../../components/layout/Layouts'
 import { Field } from '../../components/ui'
 import { useStore } from '../../features/store'
@@ -10,6 +10,25 @@ import { Input } from '@/components/ui/input'
 import { SelectInput } from '@/components/ui'
 
 const dest: Record<Role, string> = { customer: '/customer', provider: '/provider', admin: '/admin' }
+
+function PasswordInput({ id, autoComplete, value, onChange }: { id: string; autoComplete: string; value: string; onChange: (e: { target: { value: string } }) => void }) {
+  const [showPassword, setShowPassword] = useState(false)
+  const Icon = showPassword ? EyeOff : Eye
+
+  return (
+    <div className="relative">
+      <Input id={id} type={showPassword ? 'text' : 'password'} autoComplete={autoComplete} value={value} onChange={onChange} className="pr-11" />
+      <button
+        type="button"
+        aria-label={showPassword ? 'Hide password' : 'Show password'}
+        className="absolute inset-y-0 right-3 flex items-center text-slate-500 transition hover:text-slate-700"
+        onClick={() => setShowPassword((show) => !show)}
+      >
+        <Icon className="h-4 w-4" aria-hidden />
+      </button>
+    </div>
+  )
+}
 
 function Shell({ title, subtitle, children }: { title: string; subtitle: string; children: ReactNode }) {
   return (
@@ -61,7 +80,7 @@ export function Login() {
     <Shell title="Welcome back" subtitle="Log in to manage your events, bookings and messages.">
       <form className="space-y-4" noValidate onSubmit={(e) => { e.preventDefault(); void submit() }}>
         <Field label="Email" error={errors.email}>{(id) => <Input id={id} type="email" autoComplete="email"  value={email} onChange={(e) => setEmail(e.target.value)} />}</Field>
-        <Field label="Password" error={errors.pw}>{(id) => <Input id={id} type="password" autoComplete="current-password"  value={pw} onChange={(e) => setPw(e.target.value)} />}</Field>
+        <Field label="Password" error={errors.pw}>{(id) => <PasswordInput id={id} autoComplete="current-password" value={pw} onChange={(e) => setPw(e.target.value)} />}</Field>
         {errors.form && <p role="alert" className="rounded-xl border border-black p-3 text-sm font-semibold">{errors.form}</p>}
         <Button className="w-full" disabled={busy}>{busy ? 'Logging in…' : 'Log in'}</Button>
         <p className="text-center text-sm text-slate-600">New to EventLink? <Link to="/register" className="font-semibold text-teal-700 hover:underline">Create an account</Link></p>
@@ -132,7 +151,7 @@ export function Register() {
           </>
         )}
         <Field label="Email" error={errors.email}>{(id) => <Input id={id} type="email" autoComplete="email"  value={f.email} onChange={up('email')} />}</Field>
-        <Field label="Password" error={errors.pw} hint="At least 6 characters.">{(id) => <Input id={id} type="password" autoComplete="new-password"  value={f.pw} onChange={up('pw')} />}</Field>
+        <Field label="Password" error={errors.pw} hint="At least 6 characters.">{(id) => <PasswordInput id={id} autoComplete="new-password" value={f.pw} onChange={up('pw')} />}</Field>
         {role === 'provider' && <p className="rounded-xl bg-teal-50 p-3 text-sm text-teal-800">New provider accounts stay pending until our team reviews your business details. Verified providers get a badge.</p>}
         {errors.form && <p role="alert" className="rounded-xl border border-black p-3 text-sm font-semibold">{errors.form}</p>}
         <Button className="w-full" disabled={busy}>{busy ? 'Creating account…' : 'Create account'}</Button>
