@@ -353,7 +353,7 @@ export function ProviderPackages() {
       <Modal open={!!edit} onClose={() => setEdit(null)} title={isNew ? 'New package' : 'Edit package'}>
         {edit && <form className="space-y-4" noValidate onSubmit={(e) => { e.preventDefault(); save() }}>
           <Field label="Package name" error={err.name}>{(id) => <Input id={id}  value={edit.name} onChange={(e) => setEdit({ ...edit, name: e.target.value })} />}</Field>
-          <Field label="Price (USD)" error={err.price}>{(id) => <Input id={id} type="number" min={0}  value={edit.price || ''} onChange={(e) => setEdit({ ...edit, price: Number(e.target.value) })} />}</Field>
+          <Field label="Price (UGX)" error={err.price}>{(id) => <Input id={id} type="number" min={0}  value={edit.price || ''} onChange={(e) => setEdit({ ...edit, price: Number(e.target.value) })} />}</Field>
           <Field label="Short description">{(id) => <Input id={id}  value={edit.description} onChange={(e) => setEdit({ ...edit, description: e.target.value })} />}</Field>
           <Field label="What’s included" hint="One item per line.">{(id) => <Textarea id={id} rows={4}  value={includes} onChange={(e) => setIncludes(e.target.value)} />}</Field>
           <div className="flex justify-end gap-2"><Button type="button" variant="ghost" onClick={() => setEdit(null)}>Cancel</Button><Button>Save package</Button></div>
