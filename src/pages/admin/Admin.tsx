@@ -1,7 +1,7 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  Ban, BadgeCheck, Check, ClipboardList, FileText, Flag, HelpCircle, Plus, Search, Store, Tags, UserX, Users, X,
+  Ban, BadgeCheck, Check, ClipboardList, CreditCard, FileText, Flag, HelpCircle, Plus, ReceiptText, Search, Store, Tags, UserX, Users, X,
 } from 'lucide-react'
 import {
   Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
@@ -16,7 +16,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { cn } from '@/lib/utils'
 import { useStore } from '../../features/store'
 import type { AccountStatus, ProviderAccount, ReportStatus } from '../../types'
-import { dateLong, timeShort } from '../../utils/format'
+import { dateLong, moneyUgx, timeShort } from '../../utils/format'
 
 const INK = '#000000'
 const GREY = '#C2602B' // cinnamon
@@ -485,6 +485,82 @@ export function AdminActivity() {
           </TableBody>
         </Table>
       </Card>
+    </>
+  )
+}
+
+/* ------------------------------------------------------------------ Provider billing */
+export function AdminBilling() {
+  const { vendors, billingPriceUgx, setBillingPrice, subscriptionPayments, setSubscriptionPaymentStatus, toast } = useStore()
+  const [priceDraft, setPriceDraft] = useState<string | null>(null)
+  const price = priceDraft ?? String(billingPriceUgx || '')
+  const [savingPrice, setSavingPrice] = useState(false)
+  const [processingId, setProcessingId] = useState<string | null>(null)
+
+  const confirmed = subscriptionPayments.filter((payment) => payment.status === 'paid')
+  const pending = subscriptionPayments.filter((payment) => payment.status === 'pending')
+  const revenue = confirmed.reduce((total, payment) => total + payment.amountUgx, 0)
+
+  const savePrice = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    setSavingPrice(true)
+    const saved = await setBillingPrice(Number(price))
+    setSavingPrice(false)
+    if (saved) {
+      setPriceDraft(null)
+      toast('Monthly provider subscription price saved')
+    }
+  }
+
+  const updatePayment = async (id: string, status: 'paid' | 'rejected') => {
+    setProcessingId(id)
+    const updated = await setSubscriptionPaymentStatus(id, status)
+    setProcessingId(null)
+    if (updated) toast(status === 'paid' ? 'Payment confirmed and receipt issued' : 'Payment request rejected')
+  }
+
+  return (
+    <>
+      <PageHeader title="Provider billing" subtitle="Set the monthly subscription price, verify external payments and track collected revenue." />
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <Stat icon={CreditCard} label="Monthly price" value={billingPriceUgx ? moneyUgx(billingPriceUgx) : 'Not set'} hint="UGX per provider subscription" />
+        <Stat icon={ReceiptText} label="Confirmed revenue" value={moneyUgx(revenue)} hint={`${confirmed.length} confirmed subscription payments`} />
+        <Stat icon={ClipboardList} label="Needs confirmation" value={pending.length} hint="External payments awaiting review" />
+      </div>
+
+      <Card className="mt-6 p-5">
+        <h2 className="font-bold">Subscription pricing</h2>
+        <p className="mt-1 text-sm text-slate-600">Providers can accept five bookings for free. After that, they need an active monthly subscription to accept more bookings.</p>
+        <form className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end" onSubmit={savePrice}>
+          <div className="sm:w-72"><Field label="Monthly subscription price (UGX)">{(id) => <Input id={id} type="number" min={1} step={1} required value={price} onChange={(e) => setPriceDraft(e.target.value)} />}</Field></div>
+          <Button disabled={savingPrice}>{savingPrice ? 'Saving…' : 'Save price'}</Button>
+        </form>
+      </Card>
+
+      <section className="mt-8">
+        <h2 className="mb-1 font-bold">Subscription payments</h2>
+        <p className="mb-4 text-sm text-slate-600">Verify the transfer outside EventLink before confirming a payment. Confirmation activates one month and automatically issues an in-app receipt.</p>
+        {subscriptionPayments.length === 0 ? <EmptyState icon={ReceiptText} title="No subscription payments" text="Provider payment requests will appear here." /> : (
+          <div className="space-y-3">{subscriptionPayments.map((payment) => {
+            const vendor = vendors.find((item) => item.id === payment.vendorId)
+            return (
+              <Card key={payment.id} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-secondary"><ReceiptText className="h-5 w-5" aria-hidden /></span>
+                <div className="min-w-0 flex-1">
+                  <p className="font-bold">{vendor?.name ?? 'Provider'} · {moneyUgx(payment.amountUgx)}</p>
+                  <p className="text-sm text-slate-600">Submitted {dateLong(payment.createdAt.slice(0, 10))}{payment.paymentReference ? ` · Reference: ${payment.paymentReference}` : ' · No reference supplied'}</p>
+                  {payment.receiptNumber && <p className="text-xs text-slate-500">Receipt {payment.receiptNumber}</p>}
+                </div>
+                <span className="text-sm font-semibold capitalize">{payment.status}</span>
+                {payment.status === 'pending' && <div className="flex gap-2">
+                  <Button size="sm" disabled={processingId === payment.id} onClick={() => void updatePayment(payment.id, 'paid')}>Confirm paid</Button>
+                  <Button size="sm" variant="outline" disabled={processingId === payment.id} onClick={() => void updatePayment(payment.id, 'rejected')}>Reject</Button>
+                </div>}
+              </Card>
+            )
+          })}</div>
+        )}
+      </section>
     </>
   )
 }

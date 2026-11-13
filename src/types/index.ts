@@ -27,7 +27,7 @@ export interface ChatMessage { id: string; from: 'customer' | 'provider'; text: 
 export interface Thread { id: string; vendorId: string; customer: string; messages: ChatMessage[]; unread: number; customerId?: string }
 export interface AppNotification {
   id: string
-  kind: 'booking' | 'message' | 'verification' | 'account' | 'report'
+  kind: 'booking' | 'message' | 'verification' | 'account' | 'report' | 'payment'
   title: string
   body: string
   href: string
@@ -44,3 +44,15 @@ export interface Report { id: string; reporter: string; target: string; reason: 
 export interface ActivityEntry { id: string; actor: string; action: string; target: string; time: string }
 export interface CategoryItem { id: string; name: string; description: string; active: boolean }
 export interface Session { id: string; name: string; email: string; role: Role }
+export interface SubscriptionPayment {
+  id: string
+  vendorId: string
+  amountUgx: number
+  status: 'pending' | 'paid' | 'rejected'
+  paymentReference: string
+  receiptNumber?: string
+  createdAt: string
+  paidAt?: string
+  periodStart?: string
+  periodEnd?: string
+}

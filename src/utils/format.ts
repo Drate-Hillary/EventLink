@@ -1,6 +1,9 @@
 export const money = (n: number) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n)
 
+export const moneyUgx = (n: number) =>
+  new Intl.NumberFormat('en-UG', { style: 'currency', currency: 'UGX', maximumFractionDigits: 0 }).format(n)
+
 export const dateLong = (iso: string) =>
   new Date(iso.length === 10 ? iso + 'T00:00:00' : iso).toLocaleDateString('en-US', {
     month: 'short', day: 'numeric', year: 'numeric',
