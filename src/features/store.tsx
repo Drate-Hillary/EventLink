@@ -31,7 +31,14 @@ interface Store {
   deleteEvent: (id: string) => void
 
   bookings: Booking[]
-  createRequest: (r: Omit<Booking, 'id' | 'status' | 'createdAt' | 'customer'>) => void
+  createRequest: (r: Omit<Booking, 'id' | 'status' | 'createdAt' | 'customer'> & {
+    eventId?: string
+    customer?: string
+    customerEmail?: string
+    customerPhone?: string
+    customerLocation?: string
+    guestRequestId?: string
+  }) => Promise<boolean>
   setBookingStatus: (id: string, status: BookingStatus) => void
   billingPriceUgx: number
   subscriptionPayments: SubscriptionPayment[]
@@ -111,6 +118,10 @@ const toAccount = (v: Vendor): ProviderAccount => ({
 const toBooking = (r: any): Booking => ({
   id: r.id, eventId: r.event_id ?? '', vendorId: r.vendor_id, customerId: r.customer_id, customer: r.customer_name,
   packageName: r.package_name, kind: r.kind, status: r.status, note: r.note, createdAt: day(r.created_at), eventDate: r.event_date ?? undefined,
+  customerEmail: r.customer_email ?? undefined,
+  customerPhone: r.customer_phone ?? undefined,
+  customerLocation: r.customer_location ?? undefined,
+  guestRequestId: r.guest_request_id ?? undefined,
 })
 
 const toMessage = (m: any): ChatMessage => ({ id: m.id, from: m.sender, text: m.body, time: m.created_at })
@@ -308,6 +319,38 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return () => { void supabase.removeChannel(channel) }
   }, [session?.role, loadThreads])
 
+  /* ---------- Live booking updates ---------- */
+  useEffect(() => {
+    if (!session) return
+    if (session.role === 'provider' && !myVendorId) return
+
+    const filter = session.role === 'provider'
+      ? `vendor_id=eq.${myVendorId}`
+      : session.role === 'customer'
+        ? `customer_id=eq.${session.id}`
+        : undefined
+    const channel = supabase.channel(`bookings:${session.id}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'bookings',
+        ...(filter ? { filter } : {}),
+      }, (payload) => {
+        if (payload.eventType === 'DELETE') {
+          setBookings((current) => current.filter((booking) => booking.id !== payload.old.id))
+          return
+        }
+
+        const item = toBooking(payload.new)
+        setBookings((current) => current.some((booking) => booking.id === item.id)
+          ? current.map((booking) => booking.id === item.id ? item : booking)
+          : [item, ...current])
+      })
+      .subscribe()
+
+    return () => { void supabase.removeChannel(channel) }
+  }, [session, myVendorId])
+
   useEffect(() => {
     if (!session) return
 
@@ -419,21 +462,80 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     },
 
     bookings,
-    createRequest: (r) => {
-      if (!session) return
-      const id = crypto.randomUUID()
-      setBookings((b) => [{ ...r, id, customerId: session.id, status: 'pending', createdAt: new Date().toISOString().slice(0, 10), customer: session.name }, ...b])
-      void supabase.from('bookings').insert({
-        id, event_id: r.eventId || null, vendor_id: r.vendorId, customer_id: session.id, package_name: r.packageName,
-        kind: r.kind, note: r.note, event_date: r.eventDate || null,
-      }).then(({ error }) => { if (fail('Could not send request', error)) setBookings((b) => b.filter((x) => x.id !== id)) })
+    createRequest: async (r) => {
+      const now = new Date().toISOString()
+      const date = now.slice(0, 10)
+      const targetVendor = vendors.find((v) => v.id === r.vendorId)
+      if (!targetVendor) {
+        notify.error('The selected provider could not be found.')
+        return false
+      }
+      if (session && session.role !== 'customer') {
+        notify.error('Only customer accounts can send service requests.')
+        return false
+      }
+      const targets = session
+        ? targetVendor.verified ? [targetVendor] : []
+        : vendors.filter((v) => v.category === targetVendor.category && v.verified)
+      if (targets.length === 0) {
+        notify.error('There are no verified providers available for this service.')
+        return false
+      }
+      const guestName = (r.customer || session?.name || '').trim()
+      if (!session && (!guestName || !r.customerEmail?.trim() || !r.customerPhone?.trim() || !r.customerLocation?.trim())) {
+        notify.error('Guest requests require a name, email, phone number and location.')
+        return false
+      }
+      const guestRequestId = r.guestRequestId ?? crypto.randomUUID()
+      const created = targets.map((vendor) => ({
+        ...r,
+        id: crypto.randomUUID(),
+        vendorId: vendor.id,
+        customerId: session?.id ?? null,
+        status: 'pending' as const,
+        createdAt: date,
+        customer: guestName,
+        customerEmail: r.customerEmail,
+        customerPhone: r.customerPhone,
+        customerLocation: r.customerLocation,
+        guestRequestId,
+      }))
+
+      const rows = created.map((item) => ({
+          id: item.id,
+          event_id: item.eventId || null,
+          vendor_id: item.vendorId,
+          customer_id: session?.id ?? null,
+          customer_name: guestName,
+          customer_email: session ? null : item.customerEmail?.trim() ?? null,
+          customer_phone: session ? null : item.customerPhone?.trim() ?? null,
+          customer_location: session ? null : item.customerLocation?.trim() ?? null,
+          guest_request_id: session ? null : item.guestRequestId ?? guestRequestId,
+          package_name: item.packageName,
+          kind: item.kind,
+          status: 'pending' as const,
+          note: item.note,
+          event_date: item.eventDate || null,
+      }))
+      try {
+        const { error } = await supabase.from('bookings').insert(rows)
+        if (fail('Could not send request', error)) return false
+      } catch (error) {
+        notify.error(`Could not save request: ${error instanceof Error ? error.message : String(error)}`)
+        return false
+      }
+
+      setBookings((current) => [...created.filter((item) => !current.some((booking) => booking.id === item.id)), ...current])
+      return true
     },
     setBookingStatus: (id, status) => {
       const before = bookings.find((x) => x.id === id)?.status
       setBookings((b) => b.map((x) => (x.id === id ? { ...x, status } : x)))
-      void supabase.from('bookings').update({ status }).eq('id', id).then(({ error }) => {
-        if (fail('Could not update request', error) && before) setBookings((b) => b.map((x) => (x.id === id ? { ...x, status: before } : x)))
-      })
+      if (session) {
+        void supabase.from('bookings').update({ status }).eq('id', id).then(({ error }) => {
+          if (fail('Could not update request', error) && before) setBookings((b) => b.map((x) => (x.id === id ? { ...x, status: before } : x)))
+        })
+      }
     },
     billingPriceUgx,
     subscriptionPayments,

@@ -21,7 +21,8 @@ export interface EventItem {
 }
 export interface Booking {
   id: string; eventId: string; vendorId: string; packageName: string; kind: 'quote' | 'booking'
-  status: BookingStatus; note: string; createdAt: string; customer: string; eventDate?: string; customerId?: string
+  status: BookingStatus; note: string; createdAt: string; customer: string; eventDate?: string; customerId?: string | null
+  customerEmail?: string; customerPhone?: string; customerLocation?: string; guestRequestId?: string
 }
 export interface ChatMessage { id: string; from: 'customer' | 'provider'; text: string; time: string }
 export interface Thread { id: string; vendorId: string; customer: string; messages: ChatMessage[]; unread: number; customerId?: string }
