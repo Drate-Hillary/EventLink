@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Briefcase, Eye, EyeOff, ShieldCheck, User } from 'lucide-react'
 import { Logo } from '../../components/layout/Layouts'
@@ -55,13 +55,22 @@ function Shell({ title, subtitle, children }: { title: string; subtitle: string;
 }
 
 export function Login() {
-  const { login } = useStore()
+  const { login, session, ready } = useStore()
   const navigate = useNavigate()
-  const from = (useLocation().state as { from?: string } | null)?.from
-  const [email, setEmail] = useState('')
+  const routeState = useLocation().state as {
+    from?: string
+    bookingFollowUp?: { name: string; email: string; guestRequestId: string }
+  } | null
+  const from = routeState?.from
+  const bookingFollowUp = routeState?.bookingFollowUp
+  const [email, setEmail] = useState(bookingFollowUp?.email ?? '')
   const [pw, setPw] = useState('')
   const [errors, setErrors] = useState<{ email?: string; pw?: string; form?: string }>({})
   const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    if (ready && session && !bookingFollowUp) navigate(dest[session.role], { replace: true })
+  }, [ready, session, bookingFollowUp, navigate])
 
   const submit = async () => {
     const e: typeof errors = {}
@@ -70,7 +79,7 @@ export function Login() {
     setErrors(e)
     if (Object.keys(e).length) return
     setBusy(true)
-    const { error, role } = await login(email, pw)
+    const { error, role } = await login(email, pw, bookingFollowUp?.guestRequestId)
     setBusy(false)
     if (error || !role) return setErrors({ form: error ?? 'Could not log in.' })
     navigate(from && from.startsWith(dest[role]) ? from : dest[role])
@@ -79,7 +88,7 @@ export function Login() {
   return (
     <Shell title="Welcome back" subtitle="Log in to manage your events, bookings and messages.">
       <form className="space-y-4" noValidate onSubmit={(e) => { e.preventDefault(); void submit() }}>
-        <Field label="Email" error={errors.email}>{(id) => <Input id={id} type="email" autoComplete="email"  value={email} onChange={(e) => setEmail(e.target.value)} />}</Field>
+        <Field label="Email" error={errors.email} hint={bookingFollowUp ? 'Use the email address from your booking.' : undefined}>{(id) => <Input id={id} type="email" autoComplete="email" readOnly={!!bookingFollowUp} value={email} onChange={(e) => setEmail(e.target.value)} />}</Field>
         <Field label="Password" error={errors.pw}>{(id) => <PasswordInput id={id} autoComplete="current-password" value={pw} onChange={(e) => setPw(e.target.value)} />}</Field>
         {errors.form && <p role="alert" className="rounded-xl border border-black p-3 text-sm font-semibold">{errors.form}</p>}
         <Button className="w-full" disabled={busy}>{busy ? 'Logging in…' : 'Log in'}</Button>
@@ -92,8 +101,17 @@ export function Login() {
 export function Register() {
   const { register, categories, toast } = useStore()
   const navigate = useNavigate()
+  const bookingFollowUp = (useLocation().state as {
+    bookingFollowUp?: { name: string; email: string; guestRequestId: string }
+  } | null)?.bookingFollowUp
   const [role, setRole] = useState<'customer' | 'provider'>('customer')
-  const [f, setF] = useState({ name: '', business: '', category: '', email: '', pw: '' })
+  const [f, setF] = useState({
+    name: bookingFollowUp?.name ?? '',
+    business: '',
+    category: '',
+    email: bookingFollowUp?.email ?? '',
+    pw: '',
+  })
   const [busy, setBusy] = useState(false)
   const [sentTo, setSentTo] = useState('')
   const cats = categories.filter((c) => c.active).map((c) => c.name)
@@ -112,6 +130,7 @@ export function Register() {
     const { error, needsConfirmation } = await register({
       name: f.name.trim(), email: f.email, password: f.pw, role,
       business: f.business.trim(), category: f.category || cats[0],
+      guestRequestId: bookingFollowUp?.guestRequestId,
     })
     setBusy(false)
     if (error) return setErrors({ form: error })
@@ -123,8 +142,8 @@ export function Register() {
   if (sentTo) {
     return (
       <Shell title="Check your email" subtitle={`We sent a confirmation link to ${sentTo}.`}>
-        <p className="text-sm text-slate-600">Open the link to activate your account, then log in.</p>
-        <Link to="/login" className="mt-6 inline-block font-semibold text-teal-700 hover:underline">Go to log in</Link>
+        <p className="text-sm text-slate-600">Open the link to confirm your email. We’ll take you to your account when confirmation is complete.</p>
+        <Link to="/login" state={bookingFollowUp ? { bookingFollowUp } : undefined} className="mt-6 inline-block font-semibold text-teal-700 hover:underline">Go to log in</Link>
       </Shell>
     )
   }
@@ -132,17 +151,23 @@ export function Register() {
   return (
     <Shell title="Create your account" subtitle="Join as a customer to plan events, or as a provider to get booked.">
       <form className="space-y-4" noValidate onSubmit={(e) => { e.preventDefault(); void submit() }}>
-        <fieldset>
-          <legend className="mb-1.5 block text-sm font-semibold">I want to</legend>
-          <div className="grid grid-cols-2 gap-2">
-            {([['customer', 'Plan an event', User], ['provider', 'Offer services', Briefcase]] as const).map(([r, label, Icon]) => (
-              <label key={r} className={`flex cursor-pointer items-center gap-2 rounded-xl border p-3 text-sm font-semibold transition ${role === r ? 'border-teal-600 bg-teal-50' : 'border-soft bg-white hover:bg-ivory'}`}>
-                <input type="radio" name="role" className="sr-only" checked={role === r} onChange={() => setRole(r)} />
-                <Icon className="h-5 w-5" aria-hidden /> {label}
-              </label>
-            ))}
-          </div>
-        </fieldset>
+        {bookingFollowUp ? (
+          <p className="rounded-xl bg-teal-50 p-3 text-sm text-teal-800">
+            Your booking request is saved. Create a customer account to follow its status and provider responses.
+          </p>
+        ) : (
+          <fieldset>
+            <legend className="mb-1.5 block text-sm font-semibold">I want to</legend>
+            <div className="grid grid-cols-2 gap-2">
+              {([['customer', 'Plan an event', User], ['provider', 'Offer services', Briefcase]] as const).map(([r, label, Icon]) => (
+                <label key={r} className={`flex cursor-pointer items-center gap-2 rounded-xl border p-3 text-sm font-semibold transition ${role === r ? 'border-teal-600 bg-teal-50' : 'border-soft bg-white hover:bg-ivory'}`}>
+                  <input type="radio" name="role" className="sr-only" checked={role === r} onChange={() => setRole(r)} />
+                  <Icon className="h-5 w-5" aria-hidden /> {label}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        )}
         <Field label="Full name" error={errors.name}>{(id) => <Input id={id} autoComplete="name"  value={f.name} onChange={up('name')} />}</Field>
         {role === 'provider' && (
           <>
@@ -150,12 +175,12 @@ export function Register() {
             <Field label="Service category">{(id) => <SelectInput id={id}  value={f.category || cats[0]} onChange={up('category')}>{cats.map((c) => <option key={c}>{c}</option>)}</SelectInput>}</Field>
           </>
         )}
-        <Field label="Email" error={errors.email}>{(id) => <Input id={id} type="email" autoComplete="email"  value={f.email} onChange={up('email')} />}</Field>
+        <Field label="Email" error={errors.email} hint={bookingFollowUp ? 'Use the email address from your booking.' : undefined}>{(id) => <Input id={id} type="email" autoComplete="email" readOnly={!!bookingFollowUp} value={f.email} onChange={up('email')} />}</Field>
         <Field label="Password" error={errors.pw} hint="At least 6 characters.">{(id) => <PasswordInput id={id} autoComplete="new-password" value={f.pw} onChange={up('pw')} />}</Field>
         {role === 'provider' && <p className="rounded-xl bg-teal-50 p-3 text-sm text-teal-800">New provider accounts stay pending until our team reviews your business details. Verified providers get a badge.</p>}
         {errors.form && <p role="alert" className="rounded-xl border border-black p-3 text-sm font-semibold">{errors.form}</p>}
         <Button className="w-full" disabled={busy}>{busy ? 'Creating account…' : 'Create account'}</Button>
-        <p className="text-center text-sm text-slate-600">Already registered? <Link to="/login" className="font-semibold text-teal-700 hover:underline">Log in</Link></p>
+        <p className="text-center text-sm text-slate-600">Already registered? <Link to="/login" state={bookingFollowUp ? { bookingFollowUp } : undefined} className="font-semibold text-teal-700 hover:underline">Log in</Link></p>
       </form>
     </Shell>
   )

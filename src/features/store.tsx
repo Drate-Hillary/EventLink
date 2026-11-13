@@ -9,13 +9,21 @@ import type {
 
 export type { PortfolioItem } from '../types'
 
-export interface RegisterInput { name: string; email: string; password: string; role: 'customer' | 'provider'; business?: string; category?: string }
+export interface RegisterInput {
+  name: string
+  email: string
+  password: string
+  role: 'customer' | 'provider'
+  business?: string
+  category?: string
+  guestRequestId?: string
+}
 
 interface Store {
   /** False until the saved auth session (if any) has been restored. */
   ready: boolean
   session: Session | null
-  login: (email: string, password: string) => Promise<{ error?: string; role?: Role }>
+  login: (email: string, password: string, guestRequestId?: string) => Promise<{ error?: string; role?: Role }>
   register: (input: RegisterInput) => Promise<{ error?: string; needsConfirmation?: boolean }>
   logout: () => Promise<void>
 
@@ -184,7 +192,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   /* ---------- Auth ---------- */
   useEffect(() => {
     let current: string | null | undefined
-    const resolve = async (u: { id: string } | null) => {
+    const resolve = async (u: { id: string; user_metadata?: Record<string, unknown> } | null) => {
       setSubscriptionPayments([])
       setBillingPriceUgx(0)
       if (!u) { setSession(null); setNotifications([]); setReady(true); return }
@@ -204,6 +212,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const { error: signOutError } = await supabase.auth.signOut()
         if (signOutError) notify.error(`Could not sign out: ${signOutError.message}`)
         return
+      }
+      if (data.role === 'customer' && typeof u.user_metadata?.guest_request_id === 'string') {
+        const { error: claimError } = await supabase.rpc('claim_guest_booking_requests')
+        if (claimError) notify.error(`Could not link your booking request to your account: ${claimError.message}`)
+        if (u.id !== current) return
       }
       setSession({ id: u.id, name: data.full_name || data.email, email: data.email, role: data.role })
       setReady(true)
@@ -387,7 +400,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const value = useMemo<Store>(() => ({
     ready,
     session,
-    login: async (email, password) => {
+    login: async (email, password, guestRequestId) => {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) return { error: error.message }
       const { data: p, error: profileError } = await supabase.from('profiles').select('role, status').eq('id', data.user.id).single()
@@ -401,12 +414,25 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         if (signOutError) notify.error(`Could not sign out: ${signOutError.message}`)
         return { error: 'Your account is suspended. Contact support.' }
       }
+      if (p.role === 'customer' && guestRequestId) {
+        const { error: claimError } = await supabase.rpc('claim_guest_booking_requests', { p_guest_request_id: guestRequestId })
+        if (claimError) notify.error(`Could not link your booking request to your account: ${claimError.message}`)
+      }
       return { role: p.role }
     },
-    register: async ({ name, email, password, role, business, category }) => {
+    register: async ({ name, email, password, role, business, category, guestRequestId }) => {
       const { data, error } = await supabase.auth.signUp({
         email, password,
-        options: { data: { full_name: name, role, business, category }, emailRedirectTo: `${window.location.origin}/login` },
+        options: {
+          data: {
+            full_name: name,
+            role,
+            business,
+            category,
+            ...(guestRequestId ? { guest_request_id: guestRequestId } : {}),
+          },
+          emailRedirectTo: `${window.location.origin}/login`,
+        },
       })
       if (error) return { error: error.message }
       return { needsConfirmation: !data.session }
