@@ -22,6 +22,12 @@ export function RequestModal({ vendor, open, onClose, initialPackage }: { vendor
   const [pkg, setPkg] = useState(initialPackage ?? vendor.packages[0]?.name ?? '')
   const [note, setNote] = useState('')
   const [guest, setGuest] = useState({ name: '', email: '', phone: '', location: '' })
+  const [submittedGuestBooking, setSubmittedGuestBooking] = useState<{
+    name: string
+    email: string
+    guestRequestId: string
+    receiptHref: string
+  } | null>(null)
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
 
@@ -72,13 +78,14 @@ export function RequestModal({ vendor, open, onClose, initialPackage }: { vendor
       if (!saved) return
 
       toast(kind === 'quote' ? 'Quote request sent' : 'Booking request sent')
-      onClose()
       if (guestMode) {
+        const requestReference = requestId
+        if (!requestReference) throw new Error('The guest request reference could not be created.')
         const selectedPackage = vendor.packages.find((item) => item.name === pkg)
         const subject = encodeURIComponent(`EventLink ${kind} request receipt`)
         const body = encodeURIComponent([
           'EventLink service request receipt',
-          `Reference: ${requestId}`,
+          `Reference: ${requestReference}`,
           `Customer: ${guest.name.trim()}`,
           `Email: ${guest.email.trim()}`,
           `Phone: ${guest.phone.trim()}`,
@@ -92,9 +99,21 @@ export function RequestModal({ vendor, open, onClose, initialPackage }: { vendor
           '',
           'No payment was collected. This draft confirms your request only.',
         ].join('\n'))
-        window.location.href = `mailto:${encodeURIComponent(guest.email.trim())}?subject=${subject}&body=${body}`
+        const receiptHref = `mailto:${encodeURIComponent(guest.email.trim())}?subject=${subject}&body=${body}`
+        if (kind === 'booking') {
+          setSubmittedGuestBooking({
+            name: guest.name.trim(),
+            email: guest.email.trim(),
+            guestRequestId: requestReference,
+            receiptHref,
+          })
+          return
+        }
+        onClose()
+        window.location.href = receiptHref
         return
       }
+      onClose()
       navigate('/customer#requests')
     } catch (submitError) {
       setError(`Could not send request: ${submitError instanceof Error ? submitError.message : String(submitError)}`)
@@ -104,8 +123,51 @@ export function RequestModal({ vendor, open, onClose, initialPackage }: { vendor
   }
 
   return (
-    <Modal open={open} onClose={onClose} title={`Request from ${vendor.name}`}>
-      {session && !isCustomer ? (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={submittedGuestBooking ? 'Booking request sent' : `Request from ${vendor.name}`}
+    >
+      {submittedGuestBooking ? (
+        <div className="space-y-4">
+          <p className="text-sm text-slate-700">
+            Your request is saved. Create a free customer account to follow provider responses and see this request in your dashboard.
+          </p>
+          <Button
+            className="w-full"
+            onClick={() => {
+              const booking = submittedGuestBooking
+              onClose()
+              navigate('/register', {
+                state: {
+                  bookingFollowUp: {
+                    name: booking.name,
+                    email: booking.email,
+                    guestRequestId: booking.guestRequestId,
+                  },
+                },
+              })
+            }}
+          >
+            Create an account to track this request
+          </Button>
+          <div className="flex flex-col items-center gap-2">
+            <a href={submittedGuestBooking.receiptHref} className="text-sm font-semibold text-teal-700 hover:underline">
+              Open receipt email draft
+            </a>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => {
+                onClose()
+                window.location.href = submittedGuestBooking.receiptHref
+              }}
+            >
+              Continue as a guest
+            </Button>
+          </div>
+        </div>
+      ) : session && !isCustomer ? (
         <p className="text-sm text-slate-600">Only customer accounts can request services.</p>
       ) : guestMode ? (
         <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); void submit() }}>
