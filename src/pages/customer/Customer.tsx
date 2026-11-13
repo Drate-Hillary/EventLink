@@ -114,7 +114,7 @@ export function CustomerEvents() {
           <Field label="Date" error={errors.date}>{(id) => <DatePicker id={id} value={form.date} onChange={(date) => setForm({ ...form, date })} />}</Field>
           <Field label="Location" error={errors.location}>{(id) => <Input id={id}  placeholder="City, State" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} />}</Field>
           <Field label="Guests" error={errors.guests}>{(id) => <Input id={id} type="number" min={1}  value={form.guests} onChange={(e) => setForm({ ...form, guests: Number(e.target.value) })} />}</Field>
-          <div className="sm:col-span-2"><Field label="Total budget (USD)" error={errors.budget}>{(id) => <Input id={id} type="number" min={0} step={100}  value={form.budget} onChange={(e) => setForm({ ...form, budget: Number(e.target.value) })} />}</Field></div>
+          <div className="sm:col-span-2"><Field label="Total budget (UGX)" error={errors.budget}>{(id) => <Input id={id} type="number" min={0} step={100}  value={form.budget} onChange={(e) => setForm({ ...form, budget: Number(e.target.value) })} />}</Field></div>
           <fieldset className="sm:col-span-2">
             <legend className="mb-1.5 block text-sm font-semibold">Services you need</legend>
             <div className="flex flex-wrap gap-2">
@@ -217,8 +217,8 @@ export function CustomerBudget() {
               <div key={c}>
                 <div className="flex items-center justify-between gap-3">
                   <label htmlFor={`b-${c}`} className="font-semibold">{c}</label>
-                  <div className="relative w-32"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">$</span>
-                    <Input id={`b-${c}`} type="number" min={0} step={100} className="!pl-6 text-right" value={alloc[c] ?? 0} onChange={(e) => setAllocation(ev.id, c, Math.max(0, Number(e.target.value)))} /></div>
+                  <div className="relative w-32"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">UGX</span>
+                    <Input id={`b-${c}`} type="number" min={0} step={100} className="!pl-10 text-right" value={alloc[c] ?? 0} onChange={(e) => setAllocation(ev.id, c, Math.max(0, Number(e.target.value)))} /></div>
                 </div>
                 <Slider aria-label={`${c} slider`} min={0} max={Math.max(ev.budget, 100)} step={100} value={[alloc[c] ?? 0]} onValueChange={([v]) => setAllocation(ev.id, c, v)} className="mt-2" />
               </div>
