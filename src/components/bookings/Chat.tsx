@@ -79,7 +79,7 @@ export function Chat({ side, threads, nameOf, initialId, subtitleOf }: { side: '
             </div>
             <form className="flex gap-2 border-t border-soft p-3" onSubmit={(e) => { e.preventDefault(); send() }}>
               <label className="sr-only" htmlFor="msg">Message</label>
-              <Input id="msg"  placeholder="Write a message" value={text} onChange={(e) => setText(e.target.value)} />
+              <Input id="msg" maxLength={4000} placeholder="Write a message (up to 4,000 characters)" value={text} onChange={(e) => setText(e.target.value)} />
               <Button aria-label="Send message"><Send className="h-4 w-4" /></Button>
             </form>
           </>
