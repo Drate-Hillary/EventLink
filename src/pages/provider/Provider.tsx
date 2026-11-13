@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  AlertTriangle, ArrowLeft, ArrowRight, Check, Flag, ClipboardList, Eye, ImagePlus, MessageSquare, Pencil, Plus, ShieldCheck, Star, Trash2, TrendingUp, X,
+  AlertTriangle, ArrowLeft, ArrowRight, Check, ClipboardList, CreditCard, Eye, Flag, ImagePlus, MessageSquare, Pencil, Plus, ReceiptText, ShieldCheck, Star, Trash2, TrendingUp, X,
 } from 'lucide-react'
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { Chat } from '../../components/bookings/Chat'
@@ -9,7 +9,7 @@ import { providerViews } from '../../data/mock'
 import { Art, Avatar, EmptyState, Field, Modal, PageHeader, Stars, Stat, StatusBadge, Tabs, categoryIcon } from '../../components/ui'
 import { useStore } from '../../features/store'
 import { type Booking, type BookingStatus, type Category, type Pkg, type Thread } from '../../types'
-import { dateLong, money } from '../../utils/format'
+import { dateLong, money, moneyUgx } from '../../utils/format'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -107,12 +107,15 @@ export function ProviderOverview() {
 }
 
 export function ProviderBookings() {
-  const { bookings, setBookingStatus, toast, addReport, blockedDates, myVendorId } = useMe()
+  const { bookings, setBookingStatus, toast, addReport, blockedDates, myVendorId, subscriptionPayments } = useMe()
   const [reportFor, setReportFor] = useState<string | null>(null)
   const [reason, setReason] = useState('')
   const [open, setOpen] = useState<Booking | null>(null)
   const [tab, setTab] = useState<'all' | BookingStatus>('pending')
   const inbox = bookings.filter((b) => b.vendorId === myVendorId)
+  const acceptedCount = inbox.filter((b) => b.status === 'accepted').length
+  const activeSubscription = subscriptionPayments.some((p) => p.vendorId === myVendorId && p.status === 'paid' && !!p.periodEnd && new Date(p.periodEnd) > new Date())
+  const canAccept = acceptedCount < 5 || activeSubscription
   const list = tab === 'all' ? inbox : inbox.filter((b) => b.status === tab)
   const n = (s: BookingStatus) => inbox.filter((b) => b.status === s).length
   const conflict = (b: Booking) => {
@@ -126,6 +129,10 @@ export function ProviderBookings() {
   return (
     <>
       <PageHeader title="Booking requests" subtitle="Open a request to see the event details, then accept or decline. Agree payment directly with the customer." />
+      {!canAccept && <Card className="mb-5 flex flex-wrap items-center justify-between gap-3 border-amber-300 p-4">
+        <div><p className="font-bold">Subscription required to accept more bookings</p><p className="text-sm text-slate-600">Your five free accepted bookings are used. Activate a monthly subscription to continue.</p></div>
+        <Link to="/provider/billing" className={buttonVariants({ variant: 'default' })}>View billing</Link>
+      </Card>}
       <Tabs id="pb" value={tab} onChange={setTab} tabs={[{ value: 'pending', label: 'Pending', count: n('pending') }, { value: 'accepted', label: 'Accepted', count: n('accepted') }, { value: 'declined', label: 'Declined', count: n('declined') }, { value: 'all', label: 'All', count: inbox.length }]} />
       <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
         {list.length === 0 ? <div className="lg:col-span-2"><EmptyState icon={ClipboardList} title="No requests here" text="New requests appear as soon as customers send them." /></div> : list.map((b) => {
@@ -146,7 +153,7 @@ export function ProviderBookings() {
               <div className="mt-auto flex flex-wrap gap-2 border-t pt-4 mt-4">
                 <Button size="sm" variant="outline" onClick={() => setOpen(b)}>View details</Button>
                 {b.status === 'pending' && <>
-                  <Button size="sm" disabled={!!warn} onClick={() => act(b.id, 'accepted')}><Check className="h-4 w-4" /> Accept</Button>
+                  <Button size="sm" disabled={!!warn || !canAccept} onClick={() => act(b.id, 'accepted')}><Check className="h-4 w-4" /> Accept</Button>
                   <Button size="sm" variant="outline" onClick={() => act(b.id, 'declined')}><X className="h-4 w-4" /> Decline</Button>
                 </>}
                 <Button size="sm" variant="ghost" aria-label={`Report ${b.customer}`} onClick={() => setReportFor(b.customer)}><Flag className="h-4 w-4" /></Button>
@@ -169,7 +176,7 @@ export function ProviderBookings() {
               <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-4">
                 <StatusBadge status={open.status} />
                 {open.status === 'pending' ? (
-                  <div className="flex gap-2"><Button variant="outline" onClick={() => act(open.id, 'declined')}>Decline</Button><Button disabled={!!warn} onClick={() => act(open.id, 'accepted')}>Accept request</Button></div>
+                  <div className="flex gap-2"><Button variant="outline" onClick={() => act(open.id, 'declined')}>Decline</Button><Button disabled={!!warn || !canAccept} onClick={() => act(open.id, 'accepted')}>Accept request</Button></div>
                 ) : <Link to="/provider/messages" className={buttonVariants({ variant: 'outline' })}>Message customer</Link>}
               </div>
             </div>
@@ -393,6 +400,71 @@ export function ProviderReviews() {
         <ul className="space-y-4">{me.reviews.map((r) => (
           <li key={r.id} className="rounded-2xl border bg-card text-card-foreground shadow-card p-5"><div className="flex items-center justify-between"><p className="font-bold">{r.author}</p><Stars value={r.rating} /></div><p className="mt-2 text-slate-700">{r.text}</p><p className="mt-2 text-xs text-slate-500">{r.eventType} · {dateLong(r.date)}</p></li>))}</ul>
       )}
+    </>
+  )
+}
+
+export function ProviderBilling() {
+  const { bookings, myVendorId, subscriptionPayments, billingPriceUgx, requestSubscriptionPayment, toast } = useMe()
+  const [paymentReference, setPaymentReference] = useState('')
+  const acceptedCount = bookings.filter((b) => b.vendorId === myVendorId && b.status === 'accepted').length
+  const freeRemaining = Math.max(0, 5 - acceptedCount)
+  const now = new Date()
+  const activeSubscription = subscriptionPayments.find((p) => p.status === 'paid' && p.periodEnd && new Date(p.periodEnd) > now)
+  const pendingPayment = subscriptionPayments.find((p) => p.status === 'pending')
+  const receipts = subscriptionPayments.filter((p) => p.status === 'paid').sort((a, b) => (b.paidAt ?? '').localeCompare(a.paidAt ?? ''))
+
+  const requestActivation = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (!await requestSubscriptionPayment(paymentReference)) return
+    setPaymentReference('')
+    toast('Payment submitted for administrator confirmation')
+  }
+
+  return (
+    <>
+      <PageHeader title="Subscription and receipts" subtitle="Your first five accepted bookings are free. After that, an active monthly subscription is required to accept more." />
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <Stat icon={Check} label="Free bookings used" value={`${Math.min(acceptedCount, 5)} / 5`} hint={`${freeRemaining} remaining`} />
+        <Stat icon={CreditCard} label="Monthly subscription" value={billingPriceUgx ? moneyUgx(billingPriceUgx) : 'Not set'} hint="Set by EventLink administrators" />
+        <Stat icon={ReceiptText} label="Subscription status" value={activeSubscription ? 'Active' : pendingPayment ? 'Awaiting confirmation' : 'Not active'} hint={activeSubscription?.periodEnd ? `Renews ${dateLong(activeSubscription.periodEnd.slice(0, 10))}` : 'Paid plans last one month'} />
+      </div>
+
+      <Card className="mt-6 p-5">
+        <h2 className="font-bold">{activeSubscription ? 'Your subscription is active' : 'Activate your monthly subscription'}</h2>
+        <p className="mt-1 text-sm text-slate-600">
+          {billingPriceUgx
+            ? `Monthly price: ${moneyUgx(billingPriceUgx)}. Payments are currently made outside EventLink and confirmed by an administrator.`
+            : 'The administrator has not set a subscription price yet.'}
+        </p>
+        {pendingPayment ? (
+          <p className="mt-4 rounded-xl border p-3 text-sm">Your payment reference {pendingPayment.paymentReference ? <strong>{pendingPayment.paymentReference}</strong> : 'was submitted'} is awaiting administrator confirmation.</p>
+        ) : !activeSubscription && (
+          <form className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end" onSubmit={requestActivation}>
+            <div className="flex-1"><Field label="Payment reference" hint="Optional: enter the reference from your external payment.">{(id) => <Input id={id} maxLength={120} value={paymentReference} onChange={(e) => setPaymentReference(e.target.value)} placeholder="Transaction or transfer reference" />}</Field></div>
+            <Button disabled={!billingPriceUgx}>Submit payment for confirmation</Button>
+          </form>
+        )}
+        {!activeSubscription && freeRemaining === 0 && <p className="mt-3 text-sm font-semibold">Your free accepted bookings are used. New booking acceptances are paused until payment is confirmed.</p>}
+      </Card>
+
+      <section className="mt-8">
+        <h2 className="mb-3 font-bold">Payment receipts</h2>
+        {receipts.length === 0 ? <EmptyState icon={ReceiptText} title="No receipts yet" text="A receipt appears here after an administrator confirms a subscription payment." /> : (
+          <div className="space-y-3">{receipts.map((payment) => (
+            <Card key={payment.id} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-secondary"><ReceiptText className="h-5 w-5" aria-hidden /></span>
+              <div className="min-w-0 flex-1">
+                <p className="font-bold">{payment.receiptNumber ?? 'Subscription receipt'}</p>
+                <p className="text-sm text-slate-600">{payment.paidAt ? dateLong(payment.paidAt.slice(0, 10)) : ''}{payment.periodStart && payment.periodEnd ? ` · covers ${dateLong(payment.periodStart.slice(0, 10))}–${dateLong(payment.periodEnd.slice(0, 10))}` : ''}</p>
+                {payment.paymentReference && <p className="text-xs text-slate-500">Reference: {payment.paymentReference}</p>}
+              </div>
+              <p className="font-bold">{moneyUgx(payment.amountUgx)}</p>
+            </Card>
+          ))}</div>
+        )}
+        <p className="mt-3 text-xs text-slate-500">Receipts are delivered in EventLink notifications and saved here. Email receipts are not available until an email service is configured.</p>
+      </section>
     </>
   )
 }

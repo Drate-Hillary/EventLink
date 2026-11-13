@@ -2,7 +2,7 @@
 
 An event planning and services marketplace. Customers plan events and request quotes or bookings from vetted vendors. Vendors manage their business profile, packages, availability and requests. Admins verify vendors and keep the marketplace safe.
 
-Data, auth and file storage are on [Supabase](https://supabase.com). Payments, escrow and delivery tracking are out of scope for this version.
+Data, auth and file storage are on [Supabase](https://supabase.com). Provider subscriptions are billed in UGX; payment is recorded and confirmed by an administrator until a payment gateway is connected. Customer-to-provider booking payments remain outside the platform.
 
 ## Tech stack
 
@@ -34,7 +34,7 @@ Restart the dev server after editing `tailwind.config.js`, because Tailwind v3 c
 ### Database setup
 
 1. Create a Supabase project, then copy `.env.example` to `.env` and set `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` (Project Settings → API Keys).
-2. In the SQL editor, run each file in `supabase/migrations/` in name order, then `supabase/seed.sql`. If the original schema migrations were already applied, run only the new `20261112170000_notifications_and_write_guards.sql` migration.
+2. In the SQL editor, run each file in `supabase/migrations/` in name order, then `supabase/seed.sql`. If the original schema migrations were already applied, apply any later migration files that have not yet been run.
 3. Register through the app. To bootstrap an admin, first create the user in Supabase Authentication → Users, then run this in the SQL Editor:
    ```sql
    select public.bootstrap_admin('you@example.com');
@@ -72,6 +72,7 @@ A single page, with a scroll-spy section nav:
 - **Overview**: verification status banner, stats, requests needing a reply, upcoming events, and a profile completeness checklist.
 - **Enquiries**: conversations grouped as New, Awaiting customer and All.
 - **Booking requests**: details dialog, accept or decline, and a report action. Accept is blocked when the date is marked unavailable or already accepted for another customer.
+- **Subscription and receipts**: providers can accept five bookings free, then need an active monthly subscription to accept more. Providers submit an external payment reference for administrator confirmation; confirmed payments produce an in-app receipt and notification.
 - **Business profile, Portfolio** (with reorder), **Services and packages**.
 - **Availability**: a calendar for marking unavailable dates.
 - **Reviews** and **Performance** (views, enquiries, conversion, acceptance rate, most requested packages).
@@ -85,6 +86,7 @@ A single page, with a scroll-spy section nav:
 - **Analytics**: registrations, verification outcomes, request trend and most requested categories, each with a one-line insight.
 - **Suspicious activity**: reports move through Open, Investigating and Resolved with a recorded decision.
 - **Activity log**: every admin action is recorded with who did it and when.
+- **Billing and revenue**: administrators set the monthly subscription price in UGX, confirm or reject external provider payments, and see confirmed subscription revenue.
 
 ## Project structure
 
@@ -138,6 +140,7 @@ Both are grouped by `public`, `customer`, `provider` and `admin`.
 
 - Supabase Postgres stores profiles, provider businesses and packages, events, budgets, booking requests, messages, reports, and notifications. Row-level security policies enforce customer, provider, and admin access; apply the migrations above before using the app.
 - New messages, booking requests and status changes, provider applications and verification decisions, account status changes, and report activity create in-app notifications. Notifications update in real time; email and push delivery are not configured.
+- Subscription payment confirmation also creates an in-app receipt and notification. Until a payment gateway and email service are configured, an administrator must verify external transfers; customer booking payments are still arranged directly with providers.
 - Promote the first administrator manually in SQL as shown above. The app does not expose admin registration.
 - Analytics charts on the admin and provider dashboards still use sample data from `src/data/mock.ts`.
 - Earlier months in admin charts and the weekly vendor view counts are sample data.

@@ -5,10 +5,10 @@ import { DashboardLayout, PublicLayout, RequireRole } from './components/layout/
 import { CustomerLayout } from './components/layout/CustomerLayout'
 import { Toaster } from '@/components/ui/sonner'
 import { StoreProvider } from './features/store'
-import { AdminActivity, AdminAnalytics, AdminCategories, AdminCustomers, AdminOverview, AdminReports, AdminRequests, AdminVendors, AdminVerification } from './pages/admin/Admin'
+import { AdminActivity, AdminAnalytics, AdminBilling, AdminCategories, AdminCustomers, AdminOverview, AdminReports, AdminRequests, AdminVendors, AdminVerification } from './pages/admin/Admin'
 import CustomerHome from './pages/customer/CustomerHome'
 import {
-  ProviderAvailability, ProviderBookings, ProviderMessages, ProviderOverview, ProviderPackages,
+  ProviderAvailability, ProviderBilling, ProviderBookings, ProviderMessages, ProviderOverview, ProviderPackages,
   ProviderPerformance, ProviderPortfolio, ProviderProfile, ProviderReviews,
 } from './pages/provider/Provider'
 import { Login, Register } from './pages/public/Auth'
@@ -55,6 +55,7 @@ export default function App() {
               <Route path="portfolio" element={<ProviderPortfolio />} />
               <Route path="packages" element={<ProviderPackages />} />
               <Route path="availability" element={<ProviderAvailability />} />
+              <Route path="billing" element={<ProviderBilling />} />
               <Route path="reviews" element={<ProviderReviews />} />
               <Route path="performance" element={<ProviderPerformance />} />
             </Route>
@@ -64,6 +65,7 @@ export default function App() {
               <Route path="verification" element={<AdminVerification />} />
               <Route path="vendors" element={<AdminVendors />} />
               <Route path="customers" element={<AdminCustomers />} />
+              <Route path="billing" element={<AdminBilling />} />
               <Route path="categories" element={<AdminCategories />} />
               <Route path="requests" element={<AdminRequests />} />
               <Route path="analytics" element={<AdminAnalytics />} />
