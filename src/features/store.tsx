@@ -47,7 +47,7 @@ interface Store {
     customerLocation?: string
     guestRequestId?: string
   }) => Promise<boolean>
-  setBookingStatus: (id: string, status: BookingStatus) => void
+  setBookingStatus: (id: string, status: BookingStatus) => Promise<boolean>
   billingPriceUgx: number
   subscriptionPayments: SubscriptionPayment[]
   setBillingPrice: (priceUgx: number) => Promise<boolean>
@@ -358,11 +358,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setBookings((current) => current.some((booking) => booking.id === item.id)
           ? current.map((booking) => booking.id === item.id ? item : booking)
           : [item, ...current])
+        if (item.status === 'accepted' && (session.role === 'customer' || session.role === 'provider')) {
+          void loadThreads(session.role)
+        }
       })
       .subscribe()
 
     return () => { void supabase.removeChannel(channel) }
-  }, [session, myVendorId])
+  }, [session, myVendorId, loadThreads])
 
   useEffect(() => {
     if (!session) return
@@ -554,14 +557,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setBookings((current) => [...created.filter((item) => !current.some((booking) => booking.id === item.id)), ...current])
       return true
     },
-    setBookingStatus: (id, status) => {
+    setBookingStatus: async (id, status) => {
       const before = bookings.find((x) => x.id === id)?.status
       setBookings((b) => b.map((x) => (x.id === id ? { ...x, status } : x)))
-      if (session) {
-        void supabase.from('bookings').update({ status }).eq('id', id).then(({ error }) => {
-          if (fail('Could not update request', error) && before) setBookings((b) => b.map((x) => (x.id === id ? { ...x, status: before } : x)))
-        })
+      if (!session) return true
+      const { error } = await supabase.from('bookings').update({ status }).eq('id', id)
+      if (fail('Could not update request', error)) {
+        if (before) setBookings((b) => b.map((x) => (x.id === id ? { ...x, status: before } : x)))
+        return false
       }
+      if (status === 'accepted') await loadThreads(session.role)
+      return true
     },
     billingPriceUgx,
     subscriptionPayments,
@@ -779,7 +785,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     },
 
     toast,
-  }), [ready, session, vendors, myVendorId, me, events, bookings, threads, notifications, allocations, portfolio, blockedDates, accounts, users, reports, activity, categories, billingPriceUgx, subscriptionPayments, log, toast, fail, loadVendors, loadBillingPayments])
+  }), [ready, session, vendors, myVendorId, me, events, bookings, threads, notifications, allocations, portfolio, blockedDates, accounts, users, reports, activity, categories, billingPriceUgx, subscriptionPayments, log, toast, fail, loadVendors, loadThreads, loadBillingPayments])
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }

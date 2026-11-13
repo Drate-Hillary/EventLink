@@ -135,7 +135,7 @@ export function CustomerEvents() {
 
 /* ---------- Requests ---------- */
 export function CustomerBookings() {
-  const { bookings, vendors, events, session } = useStore()
+  const { bookings, vendors, events, session, threads } = useStore()
   const [tab, setTab] = useState<'all' | BookingStatus>('all')
   const mine = bookings.filter((b) => b.customerId === session?.id)
   const list = tab === 'all' ? mine : mine.filter((b) => b.status === tab)
@@ -150,6 +150,7 @@ export function CustomerBookings() {
           list.map((b) => {
             const v = vendors.find((x) => x.id === b.vendorId)
             const ev = events.find((x) => x.id === b.eventId)
+            const thread = threads.find((t) => t.vendorId === b.vendorId && t.customerId === session?.id)
             return (
               <article key={b.id} className="flex flex-col rounded-3xl border bg-card p-4 shadow-card transition hover:shadow-lift sm:p-5">
                 <div className="flex items-start gap-4">
@@ -165,7 +166,12 @@ export function CustomerBookings() {
                 {b.note && <p className="mt-3 rounded-2xl bg-secondary px-4 py-2.5 text-sm text-slate-700">“{b.note}”</p>}
                 <div className="mt-auto flex items-center justify-between gap-3 pt-4 text-sm">
                   <p className="min-w-0 truncate text-slate-500">{ev?.name ?? 'Event'} · sent {dateLong(b.createdAt)}</p>
-                  <Link to="/customer#messages" className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'shrink-0')}>Message</Link>
+                  <Link
+                    to={b.status === 'accepted' && thread ? `/customer?thread=${thread.id}#messages` : '/customer#messages'}
+                    className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'shrink-0')}
+                  >
+                    {b.status === 'accepted' ? 'Open chat' : 'Message'}
+                  </Link>
                 </div>
               </article>
             )
@@ -183,7 +189,7 @@ export function CustomerMessages() {
   return (
     <>
       <PageHeader section title="Messages" subtitle="Your full conversation history with providers." />
-      <Chat side="customer" threads={mine} initialId={params.get('thread')} nameOf={(t) => vendors.find((v) => v.id === t.vendorId)?.name ?? 'Provider'} />
+      <Chat key={params.get('thread') ?? 'inbox'} side="customer" threads={mine} initialId={params.get('thread')} nameOf={(t) => vendors.find((v) => v.id === t.vendorId)?.name ?? 'Provider'} />
     </>
   )
 }
