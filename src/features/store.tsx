@@ -4,7 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { supabase } from '../lib/supabase'
 import type {
   AccountStatus, ActivityEntry, AppNotification, Booking, CategoryItem, ReportStatus, BookingStatus, Category, ChatMessage, EventItem, Pkg,
-  PortfolioItem, ProviderAccount, Report, Role, Session, Thread, UserAccount, Vendor,
+  PortfolioItem, ProviderAccount, Report, Role, Session, SubscriptionPayment, Thread, UserAccount, Vendor,
 } from '../types'
 
 export type { PortfolioItem } from '../types'
@@ -33,6 +33,11 @@ interface Store {
   bookings: Booking[]
   createRequest: (r: Omit<Booking, 'id' | 'status' | 'createdAt' | 'customer'>) => void
   setBookingStatus: (id: string, status: BookingStatus) => void
+  billingPriceUgx: number
+  subscriptionPayments: SubscriptionPayment[]
+  setBillingPrice: (priceUgx: number) => Promise<boolean>
+  requestSubscriptionPayment: (paymentReference: string) => Promise<boolean>
+  setSubscriptionPaymentStatus: (id: string, status: 'paid' | 'rejected') => Promise<boolean>
 
   threads: Thread[]
   sendMessage: (threadId: string, from: 'customer' | 'provider', text: string) => void
@@ -124,6 +129,12 @@ const toNotification = (r: any): AppNotification => ({
   id: r.id, kind: r.kind, title: r.title, body: r.body, href: r.href,
   createdAt: r.created_at, readAt: r.read_at,
 })
+const toSubscriptionPayment = (r: any): SubscriptionPayment => ({
+  id: r.id, vendorId: r.vendor_id, amountUgx: Number(r.amount_ugx), status: r.status,
+  paymentReference: r.payment_reference ?? '', receiptNumber: r.receipt_number ?? undefined,
+  createdAt: r.created_at, paidAt: r.paid_at ?? undefined,
+  periodStart: r.period_start ?? undefined, periodEnd: r.period_end ?? undefined,
+})
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
 const VENDOR_SELECT = '*, packages(*), reviews(*), portfolio_items(*), owner:profiles(full_name)'
@@ -142,6 +153,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [reports, setReports] = useState<Report[]>([])
   const [activity, setActivity] = useState<ActivityEntry[]>([])
   const [categories, setCategories] = useState<CategoryItem[]>([])
+  const [billingPriceUgx, setBillingPriceUgx] = useState(0)
+  const [subscriptionPayments, setSubscriptionPayments] = useState<SubscriptionPayment[]>([])
 
   const toast = useCallback((text: string) => { notify(text) }, [])
   const fail = useCallback((what: string, error: { message: string } | null) => {
@@ -161,6 +174,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let current: string | null | undefined
     const resolve = async (u: { id: string } | null) => {
+      setSubscriptionPayments([])
+      setBillingPriceUgx(0)
       if (!u) { setSession(null); setNotifications([]); setReady(true); return }
       const { data, error } = await supabase.from('profiles').select('full_name, email, role, status').eq('id', u.id).single()
       if (u.id !== current) return
@@ -204,13 +219,26 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (!fail('Could not load messages', error)) setThreads((data ?? []).map((r) => toThread(r, role)))
   }, [fail])
 
+  const loadBillingPayments = useCallback(async (role: Role, vendorId?: string) => {
+    if (role === 'provider' && !vendorId) return
+    let query = supabase.from('provider_subscription_payments').select('*').order('created_at', { ascending: false })
+    if (role === 'provider') query = query.eq('vendor_id', vendorId!)
+    const { data, error } = await query
+    if (!fail('Could not load subscription payments', error)) setSubscriptionPayments((data ?? []).map(toSubscriptionPayment))
+  }, [fail])
+
   useEffect(() => {
     if (!ready) return
     let cancelled = false
     const role = session?.role
     const none = Promise.resolve({ data: null, error: null })
     const load = async () => {
-      const [cats, books, evs, allocs, blocked, profs, reps, acts, notes] = await Promise.all([
+      const paymentRows = role === 'admin'
+        ? supabase.from('provider_subscription_payments').select('*').order('created_at', { ascending: false })
+        : role === 'provider' && myVendorId
+          ? supabase.from('provider_subscription_payments').select('*').eq('vendor_id', myVendorId).order('created_at', { ascending: false })
+          : none
+      const [cats, books, evs, allocs, blocked, profs, reps, acts, notes, billing, payments] = await Promise.all([
         supabase.from('categories').select('*').order('created_at'),
         role ? supabase.from('bookings').select('*').order('created_at', { ascending: false }) : none,
         role === 'customer' ? supabase.from('events').select('*').order('date') : none,
@@ -220,9 +248,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         role === 'admin' ? supabase.from('reports').select('*, profiles(full_name)').order('created_at', { ascending: false }) : none,
         role === 'admin' ? supabase.from('activity_log').select('*, profiles(full_name)').order('created_at', { ascending: false }).limit(200) : none,
         role ? supabase.from('notifications').select('*').order('created_at', { ascending: false }).limit(50) : none,
+        role ? supabase.from('platform_billing_settings').select('monthly_price_ugx').eq('singleton', true).single() : none,
+        paymentRows,
       ])
       if (cancelled) return
-      fail('Could not load data', [cats, books, evs, allocs, blocked, profs, reps, acts, notes].find((r) => r.error)?.error ?? null)
+      fail('Could not load data', [cats, books, evs, allocs, blocked, profs, reps, acts, notes, billing, payments].find((r) => r.error)?.error ?? null)
 
       setCategories((cats.data ?? []).map((c) => ({ id: c.id, name: c.name, description: c.description, active: c.active })))
       setBookings((books.data ?? []).map(toBooking))
@@ -235,12 +265,28 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setReports((reps.data ?? []).map((r) => ({ id: r.id, reporter: r.profiles?.full_name ?? 'Unknown', target: r.target, reason: r.reason, date: day(r.created_at), status: r.status, decision: r.decision ?? undefined })))
       setActivity((acts.data ?? []).map((x) => ({ id: x.id, actor: x.profiles?.full_name ?? 'Admin', action: x.action, target: x.target, time: x.created_at.slice(0, 16) })))
       setNotifications((notes.data ?? []).map(toNotification))
+      setBillingPriceUgx(Number(billing.data?.monthly_price_ugx ?? 0))
+      setSubscriptionPayments((payments.data ?? []).map(toSubscriptionPayment))
       if (role) await loadThreads(role); else setThreads([])
       await loadVendors()
     }
     void load()
     return () => { cancelled = true }
-  }, [ready, session, fail, loadVendors, loadThreads])
+  }, [ready, session, myVendorId, fail, loadVendors, loadThreads])
+
+  useEffect(() => {
+    if (!session) return
+    const role = session.role
+    const vendorId = myVendorId ?? undefined
+    if (role === 'provider' && !vendorId) return
+    const channel = supabase.channel(`subscription-payments:${session.id}`)
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'provider_subscription_payments',
+        ...(role === 'provider' ? { filter: `vendor_id=eq.${vendorId}` } : {}),
+      }, () => { void loadBillingPayments(role, vendorId) })
+      .subscribe()
+    return () => { void supabase.removeChannel(channel) }
+  }, [session, myVendorId, loadBillingPayments])
 
   /* ---------- Live chat ---------- */
   useEffect(() => {
@@ -388,6 +434,44 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       void supabase.from('bookings').update({ status }).eq('id', id).then(({ error }) => {
         if (fail('Could not update request', error) && before) setBookings((b) => b.map((x) => (x.id === id ? { ...x, status: before } : x)))
       })
+    },
+    billingPriceUgx,
+    subscriptionPayments,
+    setBillingPrice: async (priceUgx) => {
+      if (!Number.isSafeInteger(priceUgx) || priceUgx <= 0) {
+        notify.error('Enter a monthly price greater than zero UGX.')
+        return false
+      }
+      const { error } = await supabase.from('platform_billing_settings')
+        .update({ monthly_price_ugx: priceUgx, updated_by: session?.id, updated_at: new Date().toISOString() })
+        .eq('singleton', true)
+      if (fail('Could not save subscription price', error)) return false
+      setBillingPriceUgx(priceUgx)
+      log('Updated monthly provider subscription price', `UGX ${priceUgx.toLocaleString('en-UG')}`)
+      return true
+    },
+    requestSubscriptionPayment: async (paymentReference) => {
+      if (!myVendorId) {
+        notify.error('Your provider profile could not be found.')
+        return false
+      }
+      const { error } = await supabase.from('provider_subscription_payments').insert({
+        vendor_id: myVendorId, payment_reference: paymentReference.trim(),
+      })
+      if (fail('Could not submit subscription payment', error)) return false
+      await loadBillingPayments('provider', myVendorId)
+      return true
+    },
+    setSubscriptionPaymentStatus: async (id, status) => {
+      const payment = subscriptionPayments.find((p) => p.id === id)
+      const { error } = await supabase.from('provider_subscription_payments').update({ status }).eq('id', id)
+      if (fail('Could not update subscription payment', error)) return false
+      if (session?.role) await loadBillingPayments(session.role, myVendorId ?? undefined)
+      if (payment) {
+        const business = vendors.find((vendor) => vendor.id === payment.vendorId)?.name ?? payment.vendorId
+        log(status === 'paid' ? 'Confirmed provider subscription payment' : 'Rejected provider subscription payment', business)
+      }
+      return true
     },
 
     threads,
@@ -567,7 +651,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     },
 
     toast,
-  }), [ready, session, vendors, myVendorId, me, events, bookings, threads, notifications, allocations, portfolio, blockedDates, accounts, users, reports, activity, categories, log, toast, fail, loadVendors])
+  }), [ready, session, vendors, myVendorId, me, events, bookings, threads, notifications, allocations, portfolio, blockedDates, accounts, users, reports, activity, categories, billingPriceUgx, subscriptionPayments, log, toast, fail, loadVendors, loadBillingPayments])
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }

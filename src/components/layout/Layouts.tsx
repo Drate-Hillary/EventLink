@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
-  BadgeCheck, BarChart3, Bell as BellIcon, CalendarRange, ClipboardList, Flag, Image, LayoutDashboard, LineChart,
+  BadgeCheck, BarChart3, Bell as BellIcon, CalendarRange, ClipboardList, CreditCard, Flag, Image, LayoutDashboard, LineChart,
   LogOut, Menu, MessageSquare, PackageOpen, ScrollText, Sparkles, Star, Store, Tags, UserCog, Users, X, type LucideIcon,
 } from 'lucide-react'
 import { useStore } from '../../features/store'
@@ -107,6 +107,7 @@ const nav: Record<'provider' | 'admin', NavGroup[]> = {
       { to: '/provider/portfolio', label: 'Portfolio', icon: Image },
       { to: '/provider/packages', label: 'Services and packages', icon: PackageOpen },
       { to: '/provider/availability', label: 'Availability', icon: CalendarRange },
+      { to: '/provider/billing', label: 'Subscription and receipts', icon: CreditCard },
     ] },
     { label: 'Growth', items: [
       { to: '/provider/reviews', label: 'Reviews', icon: Star },
@@ -119,6 +120,7 @@ const nav: Record<'provider' | 'admin', NavGroup[]> = {
       { to: '/admin/verification', label: 'Provider verification', icon: BadgeCheck },
       { to: '/admin/vendors', label: 'Vendors', icon: Store },
       { to: '/admin/customers', label: 'Customers', icon: Users },
+      { to: '/admin/billing', label: 'Billing and revenue', icon: CreditCard },
     ] },
     { label: 'Marketplace', items: [
       { to: '/admin/categories', label: 'Service categories', icon: Tags },
@@ -188,7 +190,7 @@ export function NotificationBell() {
 }
 
 export function DashboardLayout({ role }: { role: 'provider' | 'admin' }) {
-  const { session, logout, threads, bookings, accounts, reports, myVendorId, vendors } = useStore()
+  const { session, logout, threads, bookings, accounts, reports, myVendorId, vendors, subscriptionPayments } = useStore()
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const [open, setOpen] = useState(false)
@@ -203,9 +205,10 @@ export function DashboardLayout({ role }: { role: 'provider' | 'admin' }) {
   const pendingReq = bookings.filter((b) => b.vendorId === myVendorId && b.status === 'pending').length
   const pendingApps = accounts.filter((a) => a.status === 'pending').length
   const openReports = reports.filter((r) => r.status !== 'resolved').length
+  const pendingPayments = subscriptionPayments.filter((payment) => payment.status === 'pending').length
   const badge: Record<string, number> = role === 'provider'
     ? { '/provider/messages': unread, '/provider/bookings': pendingReq }
-    : { '/admin/verification': pendingApps, '/admin/reports': openReports }
+    : { '/admin/verification': pendingApps, '/admin/reports': openReports, '/admin/billing': pendingPayments }
 
   const current = groups.flatMap((g) => g.items).filter((i) => (i.end ? pathname === i.to : pathname.startsWith(i.to))).sort((a, b) => b.to.length - a.to.length)[0]
 
